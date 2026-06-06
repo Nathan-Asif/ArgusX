@@ -1,0 +1,31 @@
+# ArgusX Backend dependencies.
+# Managed with uv inside a virtual environment:
+#   uv venv
+#   uv pip install -r requirements.txt
+# Versions are left unpinned so uv resolves the latest compatible release;
+# run `uv pip freeze > requirements.lock` to capture an exact lockfile.
+
+# --- Web framework & ASGI server ---
+fastapi
+uvicorn[standard]
+
+# --- Configuration & validation ---
+pydantic
+pydantic-settings
+
+# --- Agentic orchestration (LangGraph) ---
+langgraph
+langchain-core
+
+# --- Data layer ---
+supabase
+
+# --- Local vector store ---
+faiss-cpu
+numpy
+
+# --- Multimodal model client (Gemini Live) ---
+google-genai
+
+# --- Auth (JWT) ---
+pyjwt

@@ -1,0 +1,34 @@
+# --- Python / uv / venv ---
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+uv.lock
+
+# --- Environment & secrets ---
+.env
+*.env
+!*.env.example
+
+# --- FAISS local index (binary artifact) ---
+Backend/vector_store/*.bin
+
+# --- Node / Next.js (web portals) ---
+node_modules/
+.next/
+out/
+
+# --- Flutter ---
+.dart_tool/
+build/
+
+# --- Editor / OS ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
