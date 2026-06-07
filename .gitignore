@@ -32,3 +32,6 @@ build/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# --- Local configs ---
+**/local.properties
