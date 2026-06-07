@@ -1,23 +1,23 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../config/argusx_config.dart';
 
 class WebSocketService extends ChangeNotifier {
   WebSocketChannel? _channel;
+  StreamSubscription<dynamic>? _subscription;
   bool _isConnected = false;
   bool _isConnecting = false;
   String _threatLevel = 'NORMAL';
   List<String> _uiCommands = [];
   String _enrichedContext = 'System initialized. Scanning...';
 
-  // Getters
   bool get isConnected => _isConnected;
   bool get isConnecting => _isConnecting;
   String get threatLevel => _threatLevel;
   List<String> get uiCommands => _uiCommands;
   String get enrichedContext => _enrichedContext;
-
-  final String _url = 'ws://127.0.0.1:8000/ws/pulse';
 
   void connect() {
     if (_isConnected || _isConnecting) return;
@@ -26,24 +26,23 @@ class WebSocketService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(_url));
-      
-      _channel!.stream.listen(
-        (message) {
-          _isConnecting = false;
-          _isConnected = true;
-          _parseMessage(message);
-        },
-        onError: (error) {
-          _handleDisconnect();
-        },
-        onDone: () {
-          _handleDisconnect();
-        },
+      _channel = WebSocketChannel.connect(Uri.parse(ArgusXConfig.wsPulseUrl));
+
+      _subscription = _channel!.stream.listen(
+        _parseMessage,
+        onError: (_) => _handleDisconnect(),
+        onDone: () => _handleDisconnect(),
       );
 
-      // Verify connection by pushing initial heartbeat
-      sendTelemetry(0.0, 37.7749, -122.4194);
+      // Mark connected once the socket handshake completes, then send heartbeat.
+      _channel!.ready.then((_) {
+        _isConnecting = false;
+        _isConnected = true;
+        notifyListeners();
+        sendTelemetry(0.0, 37.7749, -122.4194);
+      }).catchError((_) {
+        _handleDisconnect();
+      });
     } catch (e) {
       _handleDisconnect();
     }
@@ -55,7 +54,8 @@ class WebSocketService extends ChangeNotifier {
     final payload = {
       'speed': speed,
       'coordinates': {'lat': lat, 'lng': lng},
-      'frame_data': 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+      'frame_data':
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
     };
 
     try {
@@ -69,15 +69,16 @@ class WebSocketService extends ChangeNotifier {
     try {
       final Map<String, dynamic> data = jsonDecode(message as String);
       _threatLevel = data['threat_level']?.toString() ?? 'NORMAL';
-      
+
       final commands = data['ui_commands'];
       if (commands is List) {
         _uiCommands = commands.map((c) => c.toString()).toList();
       } else {
         _uiCommands = [];
       }
-      
-      _enrichedContext = data['enriched_context']?.toString() ?? 'Safety corridor verified.';
+
+      _enrichedContext =
+          data['enriched_context']?.toString() ?? 'Safety corridor verified.';
       notifyListeners();
     } catch (e) {
       debugPrint('Error parsing message: $e');
@@ -85,6 +86,8 @@ class WebSocketService extends ChangeNotifier {
   }
 
   void _handleDisconnect() {
+    _subscription?.cancel();
+    _subscription = null;
     _isConnected = false;
     _isConnecting = false;
     _channel = null;
@@ -92,11 +95,12 @@ class WebSocketService extends ChangeNotifier {
   }
 
   void disconnect() {
+    _subscription?.cancel();
+    _subscription = null;
     _channel?.sink.close();
     _handleDisconnect();
   }
 
-  // Helper function to force trigger simulated threat levels (useful for stand-alone local runs)
   void simulateThreatChange(String level, String context) {
     _threatLevel = level;
     _enrichedContext = context;

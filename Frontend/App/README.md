@@ -1,17 +1,28 @@
-# argus_x_hud
+# ArgusX Flutter HUD (`Frontend/App`)
 
-A new Flutter project.
+16:9 landscape Heads-Up Display client for the ArgusX Safety Pulse stream.
 
-## Getting Started
+## Run
 
-This project is a starting point for a Flutter application.
+```bash
+cd Frontend/App
+flutter pub get
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
+## Backend connection
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Defaults to `ws://127.0.0.1:8000/ws/pulse`. Override with `--dart-define`:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter run \
+  --dart-define=ARGUSX_WS_URL=ws://192.168.1.10:8000/ws/pulse \
+  --dart-define=ARGUSX_API_URL=http://192.168.1.10:8000
+```
+
+See `.env.example` for the variable names. Start the backend first:
+
+```bash
+cd Backend
+uv run uvicorn argusx_main:app --reload
+```

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
+import { ARGUSX_WS_PULSE_URL } from "@/lib/argusx_config";
 import { 
   MapPin, 
   Activity, 
@@ -163,7 +164,7 @@ export default function FleetTracking() {
     }
 
     setSocketStatus("CONNECTING");
-    const ws = new WebSocket("ws://127.0.0.1:8000/ws/pulse");
+    const ws = new WebSocket(ARGUSX_WS_PULSE_URL);
 
     ws.onopen = () => {
       setSocketStatus("CONNECTED");
