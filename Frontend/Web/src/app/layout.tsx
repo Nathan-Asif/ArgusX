@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
+import { AuthProvider } from "@/lib/AuthContext";
 import "./globals.css";
 
 const inter = Inter({
@@ -32,10 +33,13 @@ export default function RootLayout({
         <div className="absolute top-0 left-1/4 right-1/4 h-96 bg-accent-purple/10 rounded-full blur-[120px] pointer-events-none z-0" />
         <div className="absolute bottom-0 right-10 w-96 h-96 bg-accent-cyan/5 rounded-full blur-[150px] pointer-events-none z-0" />
 
-        <div className="relative z-10 flex flex-col flex-1">
-          {children}
-        </div>
+        <AuthProvider>
+          <div className="relative z-10 flex flex-col flex-1">
+            {children}
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );
 }
+
