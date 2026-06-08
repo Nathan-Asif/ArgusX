@@ -1,109 +1,141 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import '../config/argusx_config.dart';
 
-class WebSocketService extends ChangeNotifier {
+/// Connection state for the ArgusX Safety Pulse WebSocket.
+enum WsConnectionState { disconnected, connecting, connected, error }
+
+/// Parsed outbound packet from the FastAPI backend (PRD §6.1).
+class ArgusXPulseResponse {
+  final String threatLevel;   // "NORMAL" | "WARNING" | "CRITICAL"
+  final String hudMode;       // "Standby" | "Sentry_Active" | "Hazard_Alert" | "Navigation"
+  final List<String> uiCommands;
+  final String enrichedContext;
+  final Map<String, dynamic> navigation;
+  final List<dynamic> pinnedPois;
+
+  const ArgusXPulseResponse({
+    required this.threatLevel,
+    required this.hudMode,
+    required this.uiCommands,
+    required this.enrichedContext,
+    required this.navigation,
+    required this.pinnedPois,
+  });
+
+  factory ArgusXPulseResponse.fromJson(Map<String, dynamic> json) {
+    return ArgusXPulseResponse(
+      threatLevel: (json['threat_level'] as String? ?? 'NORMAL').toUpperCase(),
+      hudMode: json['hud_mode'] as String? ?? 'Sentry_Active',
+      uiCommands: List<String>.from(json['ui_commands'] as List? ?? []),
+      enrichedContext: json['enriched_context'] as String? ?? '',
+      navigation: Map<String, dynamic>.from(json['navigation'] as Map? ?? {}),
+      pinnedPois: List<dynamic>.from(json['pinned_pois'] as List? ?? []),
+    );
+  }
+}
+
+/// Manages the bi-directional WebSocket connection to the FastAPI
+/// Safety Pulse endpoint (`ws://<host>/ws/pulse`).
+///
+/// Usage:
+/// ```dart
+/// final svc = ArgusXWebSocketService();
+/// svc.connect('ws://192.168.1.10:8000/ws/pulse');
+/// svc.responses.listen((r) { ... });
+/// svc.sendTelemetry(speed: 55.0, lat: 24.86, lng: 67.01);
+/// svc.disconnect();
+/// ```
+class ArgusXWebSocketService {
   WebSocketChannel? _channel;
-  StreamSubscription<dynamic>? _subscription;
-  bool _isConnected = false;
-  bool _isConnecting = false;
-  String _threatLevel = 'NORMAL';
-  List<String> _uiCommands = [];
-  String _enrichedContext = 'System initialized. Scanning...';
+  StreamSubscription? _sub;
 
-  bool get isConnected => _isConnected;
-  bool get isConnecting => _isConnecting;
-  String get threatLevel => _threatLevel;
-  List<String> get uiCommands => _uiCommands;
-  String get enrichedContext => _enrichedContext;
+  final _responseController =
+      StreamController<ArgusXPulseResponse>.broadcast();
+  final _stateController =
+      StreamController<WsConnectionState>.broadcast();
 
-  void connect() {
-    if (_isConnected || _isConnecting) return;
+  /// Emits every decoded backend response packet.
+  Stream<ArgusXPulseResponse> get responses => _responseController.stream;
 
-    _isConnecting = true;
-    notifyListeners();
+  /// Emits connection lifecycle state changes.
+  Stream<WsConnectionState> get connectionState => _stateController.stream;
 
+  WsConnectionState _currentState = WsConnectionState.disconnected;
+  WsConnectionState get state => _currentState;
+
+  void _setState(WsConnectionState s) {
+    _currentState = s;
+    _stateController.add(s);
+  }
+
+  /// Opens a connection to [uri] (e.g. `ws://192.168.1.10:8000/ws/pulse`).
+  /// Safe to call multiple times — disconnects any previous channel first.
+  Future<void> connect(String uri) async {
+    await disconnect();
+    _setState(WsConnectionState.connecting);
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(ArgusXConfig.wsPulseUrl));
+      _channel = WebSocketChannel.connect(Uri.parse(uri));
+      // Wait for the underlying socket to be ready.
+      await _channel!.ready;
+      _setState(WsConnectionState.connected);
 
-      _subscription = _channel!.stream.listen(
-        _parseMessage,
-        onError: (_) => _handleDisconnect(),
-        onDone: () => _handleDisconnect(),
+      _sub = _channel!.stream.listen(
+        (raw) {
+          try {
+            final json = jsonDecode(raw as String) as Map<String, dynamic>;
+            _responseController.add(ArgusXPulseResponse.fromJson(json));
+          } catch (_) {
+            // Malformed frame — ignore, keep connection alive.
+          }
+        },
+        onError: (_) => _setState(WsConnectionState.error),
+        onDone: () => _setState(WsConnectionState.disconnected),
+        cancelOnError: false,
       );
-
-      // Mark connected once the socket handshake completes, then send heartbeat.
-      _channel!.ready.then((_) {
-        _isConnecting = false;
-        _isConnected = true;
-        notifyListeners();
-        sendTelemetry(0.0, 37.7749, -122.4194);
-      }).catchError((_) {
-        _handleDisconnect();
-      });
-    } catch (e) {
-      _handleDisconnect();
+    } catch (_) {
+      _setState(WsConnectionState.error);
     }
   }
 
-  void sendTelemetry(double speed, double lat, double lng) {
-    if (_channel == null || !_isConnected) return;
-
-    final payload = {
+  /// Sends a telemetry frame to the backend.
+  /// [frameData] is an optional base64-encoded JPEG string.
+  void sendTelemetry({
+    required double speed,
+    required double lat,
+    required double lng,
+    String frameData = '',
+    String sessionId = 'flutter-session',
+    String riderId = 'operator-01',
+  }) {
+    if (_currentState != WsConnectionState.connected) return;
+    final payload = jsonEncode({
       'speed': speed,
       'coordinates': {'lat': lat, 'lng': lng},
-      'frame_data':
-          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-    };
-
+      'frame_data': frameData,
+      'session_id': sessionId,
+      'rider_id': riderId,
+    });
     try {
-      _channel!.sink.add(jsonEncode(payload));
-    } catch (e) {
-      _handleDisconnect();
+      _channel?.sink.add(payload);
+    } catch (_) {
+      _setState(WsConnectionState.error);
     }
   }
 
-  void _parseMessage(dynamic message) {
-    try {
-      final Map<String, dynamic> data = jsonDecode(message as String);
-      _threatLevel = data['threat_level']?.toString() ?? 'NORMAL';
-
-      final commands = data['ui_commands'];
-      if (commands is List) {
-        _uiCommands = commands.map((c) => c.toString()).toList();
-      } else {
-        _uiCommands = [];
-      }
-
-      _enrichedContext =
-          data['enriched_context']?.toString() ?? 'Safety corridor verified.';
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error parsing message: $e');
-    }
-  }
-
-  void _handleDisconnect() {
-    _subscription?.cancel();
-    _subscription = null;
-    _isConnected = false;
-    _isConnecting = false;
+  /// Closes the WebSocket connection gracefully.
+  Future<void> disconnect() async {
+    await _sub?.cancel();
+    await _channel?.sink.close();
+    _sub = null;
     _channel = null;
-    notifyListeners();
+    _setState(WsConnectionState.disconnected);
   }
 
-  void disconnect() {
-    _subscription?.cancel();
-    _subscription = null;
-    _channel?.sink.close();
-    _handleDisconnect();
-  }
-
-  void simulateThreatChange(String level, String context) {
-    _threatLevel = level;
-    _enrichedContext = context;
-    notifyListeners();
+  /// Must be called when the owning widget is disposed.
+  Future<void> dispose() async {
+    await disconnect();
+    await _responseController.close();
+    await _stateController.close();
   }
 }

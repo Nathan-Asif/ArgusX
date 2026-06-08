@@ -1,7 +1,6 @@
-name: argus_x_hud
-description: "Guardentic Vision System - Heads-Up Display Client"
+name: argusx
+description: "High-performance motorcycle HUD safety system client"
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
@@ -10,9 +9,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.6
-  web_socket_channel: ^2.4.1
-  google_fonts: ^6.1.0
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.3.0
+  provider: ^6.1.2
+  web_socket_channel: ^2.4.5
+  camera: ^0.12.0+1
 
 dev_dependencies:
   flutter_test:
@@ -21,3 +22,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/logo.png

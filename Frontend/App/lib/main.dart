@@ -1,44 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'services/websocket_service.dart';
-import 'viewports/hud_viewport.dart';
+import 'screens/login_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Force high-frame 16:9 landscape orientation lock
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
-
-  // Hide system overlays for full screen HUD view
-  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-
-  final wsService = WebSocketService();
-
-  runApp(ArgusHUDApp(wsService: wsService));
+void main() {
+  runApp(const ArgusXApp());
 }
 
-class ArgusHUDApp extends StatelessWidget {
-  final WebSocketService wsService;
-
-  const ArgusHUDApp({
-    super.key,
-    required this.wsService,
-  });
+class ArgusXApp extends StatelessWidget {
+  const ArgusXApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'ArgusX HUD',
+      title: 'ArgusX Secure Gateway',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF030303),
+        scaffoldBackgroundColor: const Color(0xFF0B0B0C),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFFDDB7FF),
+          secondary: Color(0xFF8E2DE2),
+          surface: Color(0xFF131314),
+          onPrimary: Color(0xFF4A0080),
+          onSecondary: Colors.white,
+          onSurface: Color(0xFFE5E2E3),
+        ),
         useMaterial3: true,
       ),
-      home: HudViewport(wsService: wsService),
+      home: const LoginScreen(),
     );
   }
 }
