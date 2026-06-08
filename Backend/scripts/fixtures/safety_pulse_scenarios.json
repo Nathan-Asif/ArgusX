@@ -1,0 +1,62 @@
+{
+  "scenarios": [
+    {
+      "id": "normal_clear",
+      "frame_token": "fixture:normal_clear",
+      "description": "Open corridor, no immediate hazards",
+      "hazards": []
+    },
+    {
+      "id": "warning_cross_traffic",
+      "frame_token": "fixture:warning_cross_traffic",
+      "description": "Cross-traffic intersection hazard detected ahead",
+      "hazards": [
+        {
+          "type": "cross_traffic",
+          "severity": "WARNING",
+          "confidence": 0.85,
+          "description": "Vehicles approaching intersection from the right"
+        }
+      ]
+    },
+    {
+      "id": "warning_opening_door",
+      "frame_token": "fixture:warning_opening_door",
+      "description": "Parked vehicle door opening into rider lane",
+      "hazards": [
+        {
+          "type": "opening_door",
+          "severity": "WARNING",
+          "confidence": 0.79,
+          "description": "Driver-side door opening 8m ahead on right"
+        }
+      ]
+    },
+    {
+      "id": "critical_debris",
+      "frame_token": "fixture:critical_debris",
+      "description": "Road debris obstruction in center lane",
+      "hazards": [
+        {
+          "type": "debris",
+          "severity": "CRITICAL",
+          "confidence": 0.94,
+          "description": "Large obstruction blocking center lane — immediate deceleration required"
+        }
+      ]
+    },
+    {
+      "id": "critical_pedestrian",
+      "frame_token": "fixture:critical_pedestrian",
+      "description": "Distracted pedestrian entering rider path",
+      "hazards": [
+        {
+          "type": "distracted_pedestrian",
+          "severity": "CRITICAL",
+          "confidence": 0.91,
+          "description": "Pedestrian stepping into lane without looking"
+        }
+      ]
+    }
+  ]
+}

@@ -29,3 +29,6 @@ google-genai
 
 # --- Auth (JWT) ---
 pyjwt
+
+# --- Compliance microservice egress ---
+httpx

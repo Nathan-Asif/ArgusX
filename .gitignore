@@ -41,3 +41,7 @@ Thumbs.db
 
 # --- Local configs ---
 **/local.properties
+
+# --- Java / Maven ---
+**/target/
+*.class

@@ -1,0 +1,40 @@
+{
+  "zones": [
+    {
+      "id": "zone_market_st",
+      "label": "Market Street Corridor",
+      "lat": 37.7749,
+      "lng": -122.4194,
+      "risk_profile": "moderate",
+      "historical_incidents": 3,
+      "notes": "High pedestrian density near crosswalks"
+    },
+    {
+      "id": "zone_embarcadero",
+      "label": "Embarcadero Merge Zone",
+      "lat": 37.7833,
+      "lng": -122.4167,
+      "risk_profile": "elevated",
+      "historical_incidents": 7,
+      "notes": "Frequent lane merges and tourist foot traffic"
+    },
+    {
+      "id": "zone_freeway_onramp",
+      "label": "Freeway On-ramp Hazard Belt",
+      "lat": 37.7651,
+      "lng": -122.4411,
+      "risk_profile": "high",
+      "historical_incidents": 12,
+      "notes": "Debris reports and sudden braking patterns logged"
+    },
+    {
+      "id": "zone_residential",
+      "label": "Residential Side-Street Grid",
+      "lat": 37.7599,
+      "lng": -122.4348,
+      "risk_profile": "low",
+      "historical_incidents": 1,
+      "notes": "Parked vehicle door openings reported intermittently"
+    }
+  ]
+}

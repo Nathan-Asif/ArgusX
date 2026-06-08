@@ -1,0 +1,37 @@
+{
+  "nazimabad_to_saddar": {
+    "origin": {
+      "lat": 24.9142,
+      "lng": 67.0342,
+      "label": "Nazimabad, Karachi"
+    },
+    "destination": {
+      "lat": 24.8561,
+      "lng": 67.0103,
+      "label": "Saddar, Karachi"
+    },
+    "route_context": {
+      "arrow": "LEFT",
+      "instruction": "Turn left onto Business Recorder Road",
+      "distance_m": 420,
+      "duration_s": 95,
+      "step_index": 1,
+      "total_steps": 12,
+      "maneuver": "turn-left",
+      "source": "client"
+    },
+    "route_visualization": {
+      "polyline": "mock_polyline_nazimabad_saddar",
+      "destination": {
+        "lat": 24.8561,
+        "lng": 67.0103,
+        "label": "Saddar, Karachi"
+      },
+      "distance_remaining_m": 6800,
+      "leg_distance_m": 6800,
+      "step_index": 1,
+      "total_steps": 12,
+      "source": "client"
+    }
+  }
+}

@@ -16,7 +16,9 @@ graph/                          # LangGraph core
   argusx_state.py               #   ArgusXState: shared, type-safe state
   argusx_agent_graph.py         #   ArgusXAgentGraph: builds + compiles the graph
   nodes/                        #   one class per node (perception/RAG/routing)
-api/                            # class-based routers (health + websocket)
+api/                            # class-based routers (health + websocket + compliance proxy)
+services/                       # ArgusXComplianceClient (async Java egress)
+Microservices/compliance_service/  # Java SDA pattern microservice (port 8081)
 ```
 
 The agent graph is the linear Safety Pulse pipeline:
@@ -44,6 +46,20 @@ uv run python argusx_main.py
 
 - Health check: `GET http://localhost:8000/health`
 - Safety Pulse socket: `ws://localhost:8000/ws/pulse`
+- Compliance menu proxy: `POST http://localhost:8000/compliance/menu-config`
+
+### Java compliance service
+
+```bash
+cd Microservices/compliance_service
+mvn spring-boot:run
+```
+
+Test the Python → Java loop:
+
+```bash
+uv run python scripts/test_compliance_dispatch.py
+```
 
 ## Notes
 

@@ -1,0 +1,7 @@
+# ArgusX HUD desktop simulator dependencies (optional — testing only).
+# Install: uv pip install -r requirements-simulator.txt
+
+-r requirements.txt
+pygame>=2.5.0
+opencv-python>=4.8.0
+websockets>=12.0

@@ -48,10 +48,20 @@ class ArgusXSettings(BaseSettings):
     gemini_api_key: str = Field(default="")
     gemini_model: str = Field(default="gemini-3.1-flash-live")
 
+    # --- Google Maps Platform (Geocoding + Directions) -----------------------
+    google_maps_api_key: str = Field(default="")
+    google_maps_enabled: bool = Field(default=True)
+    google_maps_timeout_seconds: float = Field(default=10.0)
+
     # --- Auth ----------------------------------------------------------------
     jwt_secret: str = Field(default="change-me")
     jwt_algorithm: str = Field(default="HS256")
     jwt_expiry_minutes: int = Field(default=60)
+
+    # --- Java compliance microservice ----------------------------------------
+    compliance_enabled: bool = Field(default=True)
+    compliance_service_url: str = Field(default="http://127.0.0.1:8081")
+    compliance_timeout_seconds: float = Field(default=5.0)
 
     @property
     def cors_origin_list(self) -> list[str]:

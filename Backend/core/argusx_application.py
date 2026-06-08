@@ -18,11 +18,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.argusx_compliance_routes import ArgusXComplianceRoutes
 from api.argusx_health_routes import ArgusXHealthRoutes
+from api.argusx_navigation_routes import ArgusXNavigationRoutes
 from api.argusx_websocket_routes import ArgusXWebSocketRoutes
 from config.argusx_settings import ArgusXSettings, get_settings
 from database.argusx_database import ArgusXDatabase
 from graph.argusx_agent_graph import ArgusXAgentGraph
+from services.argusx_compliance_client import ArgusXComplianceClient
+from services.argusx_google_maps_client import ArgusXGoogleMapsClient
 from vector_store.argusx_faiss_store import ArgusXVectorStore
 
 logging.basicConfig(level=logging.INFO)
@@ -43,6 +47,8 @@ class ArgusXApplication:
             database=self.database,
             vector_store=self.vector_store,
         )
+        self.compliance_client = ArgusXComplianceClient(self.settings)
+        self.maps_client = ArgusXGoogleMapsClient(self.settings)
 
         # --- HTTP application ---
         self.app = FastAPI(
@@ -67,11 +73,23 @@ class ArgusXApplication:
             settings=self.settings,
             database=self.database,
             vector_store=self.vector_store,
+            compliance_client=self.compliance_client,
+            maps_client=self.maps_client,
         )
-        websocket_routes = ArgusXWebSocketRoutes(agent_graph=self.agent_graph)
+        websocket_routes = ArgusXWebSocketRoutes(
+            agent_graph=self.agent_graph,
+            compliance_client=self.compliance_client,
+            maps_client=self.maps_client,
+        )
+        navigation_routes = ArgusXNavigationRoutes(maps_client=self.maps_client)
+        compliance_routes = ArgusXComplianceRoutes(
+            compliance_client=self.compliance_client,
+        )
 
         self.app.include_router(health_routes.router)
         self.app.include_router(websocket_routes.router)
+        self.app.include_router(navigation_routes.router)
+        self.app.include_router(compliance_routes.router)
 
     @asynccontextmanager
     async def _lifespan(self, app: FastAPI):
@@ -80,11 +98,15 @@ class ArgusXApplication:
         await self.database.connect()
         await self.vector_store.load()
         self.agent_graph.build()
+        await self.compliance_client.startup()
+        await self.maps_client.startup()
         logger.info("ArgusX orchestrator ready.")
         try:
             yield
         finally:
             logger.info("ArgusX orchestrator shutting down...")
+            await self.compliance_client.shutdown()
+            await self.maps_client.shutdown()
             await self.vector_store.unload()
             await self.database.disconnect()
 
