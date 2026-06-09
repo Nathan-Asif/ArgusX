@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
+import 'services/auth_service.dart';
 import 'screens/login_screen.dart';
 
-void main() {
-  runApp(const ArgusXApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final auth = ArgusXAuthService();
+  await auth.initialize();
+  runApp(ArgusXApp(authService: auth));
 }
 
 class ArgusXApp extends StatelessWidget {
-  const ArgusXApp({super.key});
+  final ArgusXAuthService authService;
+
+  const ArgusXApp({super.key, required this.authService});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'ArgusX Secure Gateway',
+      title: 'ArgusX',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
@@ -26,7 +32,7 @@ class ArgusXApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      home: LoginScreen(authService: authService),
     );
   }
 }

@@ -158,8 +158,9 @@ class ArgusXRoutingEngineNode(ArgusXBaseNode):
         dest_label = (destination or {}).get("label", "destination")
 
         if distance_m > 0:
+            distance_voice = _format_distance_voice(distance_m)
             instruction = f"In {distance_m} m - {base_instruction}"
-            voice = f"In {distance_m} meters, {base_instruction}. Heading to {dest_label}."
+            voice = f"{distance_voice}, {base_instruction}. Heading to {dest_label}."
         else:
             instruction = base_instruction
             voice = f"{base_instruction}. Heading to {dest_label}."
@@ -227,3 +228,13 @@ class ArgusXRoutingEngineNode(ArgusXBaseNode):
             "voice_prompt": voice,
             "source": "zone_context",
         }
+
+
+def _format_distance_voice(distance_m: int) -> str:
+    """Human-friendly distance phrasing for TTS."""
+    if distance_m >= 1000:
+        km = distance_m / 1000
+        if km >= 10:
+            return f"In {km:.0f} kilometers"
+        return f"In {km:.1f} kilometers"
+    return f"In {distance_m} meters"

@@ -1,45 +1,139 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../models/sim_launch_config.dart';
+import '../services/navigation_service.dart';
+import '../services/voice_destination_service.dart';
 import '../widgets/tech_panel.dart';
-import '../widgets/tech_slider.dart';
 import '../widgets/tech_toggle.dart';
+import '../widgets/tech_button.dart';
 import '../screens/camera_simulation_screen.dart';
 
-/// Pre-simulation configuration screen.
-/// When the user taps "INITIALIZE NEURAL SIMULATION", it pushes
-/// [CameraSimulationScreen] as a fullscreen route — the Dashboard AppBar
-/// and BottomNav are fully covered.
+/// Ride setup before launching the live camera safety HUD.
 class CameraHudView extends StatefulWidget {
-  const CameraHudView({super.key});
+  final String riderId;
+
+  const CameraHudView({super.key, required this.riderId});
 
   @override
   State<CameraHudView> createState() => _CameraHudViewState();
 }
 
 class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveClientMixin {
-  // Config variables
-  String _selectedLocation = 'CYBER-GRID DELTA';
-  double _probeDensity = 75.0;
-  bool _tacticalSync = true;
+  final _destinationController = TextEditingController(text: 'Saddar, Karachi');
+  final _navService = ArgusXNavigationService();
+  final _voice = VoiceDestinationService();
+
+  bool _useLiveCamera = true;
+  bool _showGpsOnHud = true;
+  bool _isResolving = false;
+  String _status = 'Set destination by voice or text, then start the ride.';
+
+  Map<String, dynamic>? _destination;
+  Map<String, dynamic>? _routeContext;
+  Map<String, dynamic>? _routeVisualization;
+  Map<String, dynamic>? _origin;
 
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void initState() {
+    super.initState();
+    _voice.initialize();
+  }
+
+  @override
+  void dispose() {
+    _destinationController.dispose();
+    _voice.dispose();
+    super.dispose();
+  }
+
+  Future<Map<String, dynamic>> _resolveOrigin() async {
+    try {
+      final perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        await Geolocator.requestPermission();
+      }
+      final pos = await Geolocator.getCurrentPosition();
+      return {
+        'lat': pos.latitude,
+        'lng': pos.longitude,
+        'label': 'Current location',
+      };
+    } catch (_) {
+      return {'label': 'Nazimabad, Karachi'};
+    }
+  }
+
+  Future<void> _resolveNavigation(String label) async {
+    setState(() {
+      _isResolving = true;
+      _status = 'Resolving route via Google Maps...';
+    });
+    try {
+      final origin = await _resolveOrigin();
+      final result = await _navService.resolveRoute(
+        origin: origin,
+        destination: {'label': label},
+      );
+      setState(() {
+        _origin = result['origin'] as Map<String, dynamic>? ?? origin;
+        _destination = result['destination'] as Map<String, dynamic>? ?? {'label': label};
+        _routeContext = result['route_context'] as Map<String, dynamic>?;
+        _routeVisualization = result['route_visualization'] as Map<String, dynamic>?;
+        _status = 'Route ready: ${_destination?['label'] ?? label}';
+        _isResolving = false;
+      });
+    } catch (e) {
+      setState(() {
+        _status = 'Route error: $e';
+        _isResolving = false;
+      });
+    }
+  }
+
+  Future<void> _onVoiceTap() async {
+    await _voice.startListening(
+      onConfirmed: (place) async {
+        _destinationController.text = place;
+        await _resolveNavigation(place);
+      },
+      onStatus: (msg) {
+        if (mounted) setState(() => _status = msg);
+      },
+    );
+  }
+
   void _launchSimulation() {
+    final label = _destinationController.text.trim();
+    if (label.isEmpty) {
+      setState(() => _status = 'Enter or speak a destination first.');
+      return;
+    }
+
+    final config = SimLaunchConfig(
+      destinationLabel: label,
+      destination: _destination ?? {'label': label},
+      routeContext: _routeContext,
+      routeVisualization: _routeVisualization,
+      origin: _origin,
+      useLiveCamera: _useLiveCamera,
+      showGpsOnHud: _showGpsOnHud,
+      riderId: widget.riderId,
+      sessionId: 'flutter-${DateTime.now().millisecondsSinceEpoch}',
+    );
+
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         opaque: true,
         fullscreenDialog: true,
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            CameraSimulationScreen(selectedLocation: _selectedLocation),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          // Slide up transition
-          const begin = Offset(0.0, 1.0);
-          const end = Offset.zero;
-          final tween =
-              Tween(begin: begin, end: end).chain(CurveTween(curve: Curves.easeOutCubic));
+        pageBuilder: (_, __, ___) => CameraSimulationScreen(config: config),
+        transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
-            position: animation.drive(tween),
+            position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+                .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
             child: child,
           );
         },
@@ -56,171 +150,107 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Text(
-            'PRE-SIMULATION\nPROTOCOL',
+            'RIDE SETUP',
             style: GoogleFonts.spaceGrotesk(
               color: const Color(0xFFE5E2E3),
-              fontSize: 28.0,
+              fontSize: 28,
               fontWeight: FontWeight.w800,
-              letterSpacing: 2.0,
-              height: 1.1,
+              letterSpacing: 2,
             ),
           ),
-          const SizedBox(height: 12.0),
+          const SizedBox(height: 8),
           Text(
-            'Calibrate neural sync coordinates, target grid zone, and sensor density before initializing simulation node.',
-            style: GoogleFonts.inter(
-              color: const Color(0xFF998CA0),
-              fontSize: 11.0,
-              height: 1.4,
-            ),
+            'Set your destination, confirm the route, then start the live safety ride.',
+            style: GoogleFonts.inter(color: const Color(0xFF998CA0), fontSize: 11),
           ),
-          const SizedBox(height: 24.0),
-
-          // Configurations Panel
+          const SizedBox(height: 20),
           TechPanel(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(16),
             bracketColor: glowColor.withValues(alpha: 0.5),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text('DESTINATION',
+                    style: GoogleFonts.spaceGrotesk(
+                        color: activeColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _destinationController,
+                  style: GoogleFonts.spaceGrotesk(color: Colors.white, fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Saddar, Karachi',
+                    hintStyle: GoogleFonts.inter(color: const Color(0xFF6B7280), fontSize: 12),
+                    filled: true,
+                    fillColor: const Color(0xFF131314),
+                    border: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Color(0xFF353436)),
+                      borderRadius: BorderRadius.circular(0),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Row(
                   children: [
-                    Icon(Icons.tune_outlined, color: activeColor, size: 16.0),
-                    const SizedBox(width: 8.0),
-                    Text(
-                      'CALIBRATION CONTROLS',
-                      style: GoogleFonts.spaceGrotesk(
-                        color: activeColor,
-                        fontSize: 12.0,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
+                    Expanded(
+                      child: TechButton(
+                        label: 'RESOLVE ROUTE',
+                        icon: Icons.route,
+                        onTap: _isResolving
+                            ? () {}
+                            : () => _resolveNavigation(_destinationController.text.trim()),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: _onVoiceTap,
+                      icon: const Icon(Icons.mic, color: Color(0xFF8E2DE2)),
+                      tooltip: 'Voice: Argus set location for...',
                     ),
                   ],
                 ),
-                const SizedBox(height: 12.0),
-                Container(
-                    height: 1.0,
-                    color: const Color(0xFF353436).withValues(alpha: 0.5)),
-                const SizedBox(height: 16.0),
-
-                // Target Grid Zone selector
-                Text(
-                  'TARGET_GRID_ZONE',
-                  style: GoogleFonts.inter(
-                    color: const Color(0xFFE5E2E3),
-                    fontSize: 11.0,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-                const SizedBox(height: 8.0),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF353436)),
-                    color: const Color(0xFF131314),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedLocation,
-                      dropdownColor: const Color(0xFF131314),
-                      isExpanded: true,
-                      icon: const Icon(Icons.arrow_drop_down,
-                          color: Color(0xFFDDB7FF)),
-                      style: GoogleFonts.spaceGrotesk(
-                        color: const Color(0xFFE5E2E3),
-                        fontSize: 12.0,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      items: <String>[
-                        'CYBER-GRID DELTA',
-                        'NEO-TOKYO SECTOR',
-                        'OBSIDIAN BASIN',
-                      ].map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() => _selectedLocation = newValue);
-                        }
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20.0),
-
-                // Probe Density Slider
-                TechSlider(
-                  label: 'PROBE_DENSITY_LOD',
-                  valueLabel: '${_probeDensity.toInt()}%',
-                  value: _probeDensity,
-                  min: 0,
-                  max: 100,
-                  onChanged: (val) => setState(() => _probeDensity = val),
-                ),
-                const SizedBox(height: 20.0),
-
-                // Tactical Sync Toggle
+                const SizedBox(height: 16),
                 TechToggle(
-                  label: 'TACTICAL_SYNC_OVERLAY',
-                  subLabel: 'Enable camera coordinates HUD',
-                  value: _tacticalSync,
-                  onChanged: (val) => setState(() => _tacticalSync = val),
+                  label: 'USE LIVE CAMERA',
+                  subLabel: 'Send real JPEG frames to perception agent',
+                  value: _useLiveCamera,
+                  onChanged: (v) => setState(() => _useLiveCamera = v),
+                ),
+                const SizedBox(height: 12),
+                TechToggle(
+                  label: 'SHOW GPS ON HUD',
+                  subLabel: 'Display live coordinates on ride overlay',
+                  value: _showGpsOnHud,
+                  onChanged: (v) => setState(() => _showGpsOnHud = v),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24.0),
-
-          // Launch button — design.md §Buttons primary, 0px radius
+          const SizedBox(height: 16),
+          Text(
+            _status,
+            style: GoogleFonts.inter(color: const Color(0xFF93C5FD), fontSize: 11),
+          ),
+          const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: _launchSimulation,
+            onPressed: _isResolving ? null : _launchSimulation,
             style: ElevatedButton.styleFrom(
               backgroundColor: glowColor,
-              minimumSize: const Size(double.infinity, 50.0),
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.zero,
-              ),
-              elevation: 6.0,
-              shadowColor: glowColor.withValues(alpha: 0.5),
+              minimumSize: const Size(double.infinity, 50),
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
             ),
             child: Text(
-              'INITIALIZE NEURAL SIMULATION',
+              'START SAFETY RIDE',
               style: GoogleFonts.spaceGrotesk(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 2.0,
-                fontSize: 12.0,
+                letterSpacing: 2,
               ),
             ),
-          ),
-          const SizedBox(height: 16.0),
-
-          // Camera permission hint
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.info_outline,
-                  color: Color(0xFF4D4354), size: 12),
-              const SizedBox(width: 6),
-              Text(
-                'Browser will request camera access on launch',
-                style: GoogleFonts.inter(
-                  color: const Color(0xFF4D4354),
-                  fontSize: 10.0,
-                ),
-              ),
-            ],
           ),
         ],
       ),

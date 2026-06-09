@@ -4,17 +4,23 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../config/argusx_config.dart';
+import '../models/sim_launch_config.dart';
+import '../utils/hazard_layout.dart';
+import '../widgets/hud/hud_map_panel.dart';
+import '../widgets/hud/hud_nav_banner.dart';
 import '../widgets/hud_bracket_painter.dart';
+import '../services/navigation_service.dart';
+import '../services/navigation_voice_service.dart';
 import '../services/websocket_service.dart';
 
-/// Full-screen camera HUD overlay. Pushed via Navigator.push() so it
-/// completely covers the DashboardScreen (AppBar + BottomNav disappear).
+/// Full-screen camera HUD connected to the ArgusX Safety Pulse backend.
 class CameraSimulationScreen extends StatefulWidget {
-  final String selectedLocation;
+  final SimLaunchConfig config;
 
   const CameraSimulationScreen({
     super.key,
-    required this.selectedLocation,
+    required this.config,
   });
 
   @override
@@ -28,60 +34,28 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
   bool _isCameraReady = false;
   String? _cameraError;
 
-  // ── Simulated Passive Sentry Hazards (PRD §5.1) ─────────────────────
-  final List<Map<String, dynamic>> _hazards = [
-    {
-      'label': 'DISTRACTED PEDESTRIAN',
-      'top': 0.35,
-      'left': 0.15,
-      'width': 0.18,
-      'height': 0.45,
-      'color': const Color(0xFFFF5252), // Danger Red
-      'distance': '12.4m',
-      'threat': 'CRITICAL',
-    },
-    {
-      'label': 'OPENING VEHICLE DOOR',
-      'top': 0.42,
-      'left': 0.68,
-      'width': 0.22,
-      'height': 0.38,
-      'color': const Color(0xFFFFB74D), // Warning Amber
-      'distance': '18.9m',
-      'threat': 'WARNING',
-    }
-  ];
-
-  // ── Simulated Spatial Grounding & POIs (PRD §5.1) ───────────────────
-  final List<Map<String, dynamic>> _pois = [
-    {
-      'label': 'POI: RECHARGE MATRIX',
-      'x': 0.38,
-      'y': 0.22,
-      'info': 'CAP: 88% // GRID_OK',
-      'color': const Color(0xFFDDB7FF), // Quantum Violet
-    },
-    {
-      'label': 'POI: VECTOR NODE 7',
-      'x': 0.58,
-      'y': 0.65,
-      'info': 'AZIMUTH: 184°',
-      'color': const Color(0xFF00E5FF), // Cyber Cyan
-    }
-  ];
-
+  List<Map<String, dynamic>> _hazards = [];
   bool _showHazards = true;
-  bool _showPois = true;
+  bool _showMap = true;
+  bool _voiceGuidance = true;
+  Map<String, dynamic> _navigation = {};
+  Map<String, dynamic> _routeContext = {};
+  Map<String, dynamic> _routeVisualization = {};
+  String _threatLevel = 'NORMAL';
+  int _routeStepIndex = 0;
+  int _remainingDistanceM = 0;
+  bool _advancingStep = false;
 
   // ── WebSocket backend link ───────────────────────────────────────
   final ArgusXWebSocketService _ws = ArgusXWebSocketService();
+  final ArgusXNavigationService _navService = ArgusXNavigationService();
+  final NavigationVoiceService _navVoice = NavigationVoiceService();
   StreamSubscription<ArgusXPulseResponse>? _wsSub;
   Timer? _frameTimer;
   WsConnectionState _wsState = WsConnectionState.disconnected;
-  // Simulated GPS — increments slightly each frame send.
-  double _lat = 24.8607;
-  double _lng = 67.0011;
-  double _speed = 48.0;
+  double _lat = 24.9107;
+  double _lng = 67.0311;
+  double _speed = 28.0;
 
   // ── Boot sequence state ─────────────────────────────────────────────
   bool _isBooting = true;
@@ -124,7 +98,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     await Future.delayed(const Duration(milliseconds: 800));
     if (mounted) setState(() => _bootText = 'CALIBRATING RETICLE SYS...');
     await Future.delayed(const Duration(milliseconds: 800));
-    if (mounted) setState(() => _bootText = 'SYNCING VELOCITY MODULES...');
+    if (mounted) setState(() => _bootText = 'LINKING NAVIGATION MODULE...');
     await Future.delayed(const Duration(milliseconds: 800));
     if (mounted) setState(() => _bootText = 'INITIALIZING CAMERA ARRAY...');
 
@@ -136,9 +110,25 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     _ws.connectionState.listen((s) {
       if (mounted) setState(() => _wsState = s);
     });
-    await _ws.connect('ws://10.0.2.2:8000/ws/pulse');
+    if (widget.config.origin?['lat'] != null) {
+      _lat = (widget.config.origin!['lat'] as num).toDouble();
+      _lng = (widget.config.origin!['lng'] as num).toDouble();
+    }
+    _routeVisualization = Map<String, dynamic>.from(
+      widget.config.routeVisualization ?? {},
+    );
+    _routeContext = Map<String, dynamic>.from(widget.config.routeContext ?? {});
+    _navigation = Map<String, dynamic>.from(_routeContext);
+    _routeStepIndex = (_routeContext['step_index'] as int?) ?? 0;
+    _remainingDistanceM = (_routeContext['distance_m'] as int?) ?? 0;
+
+    await _navVoice.initialize();
+    _navVoice.enabled = _voiceGuidance;
+
+    await _ws.connect(ArgusXConfig.wsUrl);
     _wsSub = _ws.responses.listen(_onBackendResponse);
     _startFrameLoop();
+    _sendFrame();
   }
 
   Future<void> _initCamera() async {
@@ -185,46 +175,105 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
   }
 
   Future<void> _sendFrame() async {
-    _lat  += 0.00005;
-    _lng  += 0.00003;
+    _lat += 0.00005;
+    _lng += 0.00003;
     _speed = 45.0 + (DateTime.now().millisecond % 20).toDouble();
+    _tickNavigationProgress();
 
-    String b64 = '';
-    // Capture real JPEG if camera is ready and not streaming already.
-    if (_isCameraReady && _controller != null) {
+    String frameData = widget.config.fixtureToken;
+    if (widget.config.useLiveCamera && _isCameraReady && _controller != null) {
       try {
         final xFile = await _controller!.takePicture();
         final bytes = await xFile.readAsBytes();
-        b64 = base64Encode(bytes);
+        frameData = base64Encode(bytes);
       } catch (_) {
-        // Camera busy or unavailable — send empty frame_data.
+        frameData = widget.config.fixtureToken;
       }
     }
-    _ws.sendTelemetry(
+
+    _ws.sendPulse(
       speed: _speed,
       lat: _lat,
       lng: _lng,
-      frameData: b64,
+      frameData: frameData,
+      sessionId: widget.config.sessionId,
+      riderId: widget.config.riderId,
+      destination: widget.config.destination,
+      routeContext: _routeContext.isNotEmpty
+          ? _routeContext
+          : widget.config.routeContext,
+      routeVisualization: _routeVisualization.isNotEmpty
+          ? _routeVisualization
+          : widget.config.routeVisualization,
+      routeStepIndex: _routeStepIndex,
     );
   }
 
-  /// Applies backend response to overlay state.
+  void _tickNavigationProgress() {
+    if (!widget.config.hasNavigation || _remainingDistanceM <= 0) return;
+
+    final metersPerPulse = _speed * 1000 / 3600 * 1.5;
+    _remainingDistanceM =
+        (_remainingDistanceM - metersPerPulse).round().clamp(0, 999999);
+
+    if (_remainingDistanceM < 30 && !_advancingStep) {
+      _advanceRouteStep();
+    }
+  }
+
+  Future<void> _advanceRouteStep() async {
+    final totalSteps = (_routeContext['total_steps'] as int?) ??
+        (_routeVisualization['total_steps'] as int?) ??
+        1;
+    if (_routeStepIndex >= totalSteps - 1) return;
+
+    _advancingStep = true;
+    try {
+      final result = await _navService.resolveRoute(
+        origin: {'lat': _lat, 'lng': _lng, 'label': 'Current position'},
+        destination:
+            widget.config.destination ?? {'label': widget.config.destinationLabel},
+        stepIndex: _routeStepIndex + 1,
+      );
+      if (!mounted) return;
+      setState(() {
+        _routeStepIndex = _routeStepIndex + 1;
+        _routeContext =
+            Map<String, dynamic>.from(result['route_context'] as Map? ?? {});
+        _routeVisualization = Map<String, dynamic>.from(
+          result['route_visualization'] as Map? ?? _routeVisualization,
+        );
+        _remainingDistanceM = (_routeContext['distance_m'] as int?) ?? 0;
+      });
+      _navVoice.resetRoute();
+    } catch (_) {
+      // Keep current step if resolve fails.
+    } finally {
+      _advancingStep = false;
+    }
+  }
+
   void _onBackendResponse(ArgusXPulseResponse r) {
     if (!mounted) return;
-    if (!_showHazards && !_showPois) return; // overlays disabled by user
+    _navVoice.onNavigationUpdate(
+      r.navigation,
+      stepIndex: _routeStepIndex,
+      remainingDistanceM: _remainingDistanceM,
+      threatLevel: r.threatLevel,
+    );
     setState(() {
-      // Rebuild POI list from pinned_pois if backend supplies them.
-      if (r.pinnedPois.isNotEmpty) {
-        _pois.clear();
-        for (final poi in r.pinnedPois) {
-          if (poi is Map) {
-            _pois.add({
-              'label': 'POI: ${poi['label'] ?? 'NODE'}',
-              'x': (poi['x'] as num?)?.toDouble() ?? 0.5,
-              'y': (poi['y'] as num?)?.toDouble() ?? 0.5,
-              'info': poi['info'] as String? ?? '',
-              'color': const Color(0xFF00E5FF),
-            });
+      _threatLevel = r.threatLevel;
+      _navigation = r.navigation;
+      if (r.routeVisualization.isNotEmpty) {
+        _routeVisualization = r.routeVisualization;
+      }
+      _hazards = [];
+      if (_showHazards && r.hazards.isNotEmpty) {
+        for (final item in r.hazards) {
+          if (item is Map<String, dynamic>) {
+            _hazards.add(HazardLayout.fromAgentHazard(item));
+          } else if (item is Map) {
+            _hazards.add(HazardLayout.fromAgentHazard(Map<String, dynamic>.from(item)));
           }
         }
       }
@@ -236,6 +285,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     _frameTimer?.cancel();
     _wsSub?.cancel();
     _ws.dispose();
+    _navVoice.dispose();
     _blinkController.dispose();
     _glitchController.dispose();
     _controller?.dispose();
@@ -351,62 +401,36 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                   );
                 }),
 
-              // ── Spatial Grounding & Pinning Overlay (PRD §5.1) ──────
-              if (_showPois)
-                ..._pois.map((poi) {
-                  final x = MediaQuery.of(context).size.width * poi['x'];
-                  final y = MediaQuery.of(context).size.height * poi['y'];
-                  return Positioned(
-                    left: x,
-                    top: y,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Dynamic pulsing connection line
-                        CustomPaint(
-                          size: const Size(1, 25),
-                          painter: _DottedLinePainter(color: poi['color'] as Color),
-                        ),
-                        // 3D holographic data bubble
-                        Container(
-                          padding: const EdgeInsets.all(8.0),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.8),
-                            border: Border.all(color: poi['color'] as Color, width: 1.0),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                poi['label'] as String,
-                                style: GoogleFonts.spaceGrotesk(
-                                  color: poi['color'] as Color,
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                              const SizedBox(height: 2.0),
-                              Text(
-                                poi['info'] as String,
-                                style: GoogleFonts.spaceMono(
-                                  color: const Color(0xFF998CA0),
-                                  fontSize: 7.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+              if (_navigation.isNotEmpty)
+                Positioned(
+                  top: 56,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: HudNavBanner(
+                      navigation: _navigation,
+                      remainingDistanceM: _remainingDistanceM > 0
+                          ? _remainingDistanceM
+                          : null,
                     ),
-                  );
-                }),
+                  ),
+                ),
 
-              // ── Interactive Simulation Toggles (Floating Panel) ───
+              if (_showMap && _routeVisualization.isNotEmpty)
+                Positioned(
+                  bottom: 24,
+                  right: 24,
+                  child: HudMapPanel(
+                    routeVisualization: _routeVisualization,
+                    lat: _lat,
+                    lng: _lng,
+                  ),
+                ),
+
+              // ── Overlay toggles ───
               Positioned(
                 bottom: 80.0,
-                right: 24.0,
+                left: 24.0,
                 child: Container(
                   padding: const EdgeInsets.all(12.0),
                   decoration: BoxDecoration(
@@ -418,7 +442,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        'SIMULATION OVERLAYS',
+                        'HUD OVERLAYS',
                         style: GoogleFonts.spaceGrotesk(
                           color: activeColor,
                           fontSize: 9.0,
@@ -430,19 +454,31 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                       Row(
                         children: [
                           _MiniToggle(
-                            label: 'SENTRY.HAZARDS',
+                            label: 'HAZARD DETECT',
                             value: _showHazards,
                             activeColor: const Color(0xFFFF5252),
                             onChanged: (val) => setState(() => _showHazards = val),
                           ),
                           const SizedBox(width: 8.0),
                           _MiniToggle(
-                            label: 'POI.GROUNDING',
-                            value: _showPois,
+                            label: 'ROUTE MAP',
+                            value: _showMap,
                             activeColor: const Color(0xFF00E5FF),
-                            onChanged: (val) => setState(() => _showPois = val),
+                            onChanged: (val) => setState(() => _showMap = val),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 8.0),
+                      _MiniToggle(
+                        label: 'VOICE GUIDANCE',
+                        value: _voiceGuidance,
+                        activeColor: const Color(0xFFDDB7FF),
+                        onChanged: (val) {
+                          setState(() {
+                            _voiceGuidance = val;
+                            _navVoice.enabled = val;
+                          });
+                        },
                       ),
                     ],
                   ),
@@ -454,7 +490,12 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                 top: 16.0,
                 left: 16.0,
                 right: 16.0,
-                child: _TopHudBar(borderColor: borderColor, activeColor: activeColor),
+                child: _TopHudBar(
+                  borderColor: borderColor,
+                  activeColor: activeColor,
+                  speed: _speed,
+                  threat: _threatLevel,
+                ),
               ),
 
               // WS live / sim status badge — top-right corner
@@ -551,41 +592,32 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                 ),
               ),
 
-              // Bottom-right geo data
-              Positioned(
-                bottom: 24.0,
-                right: 24.0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'ZONE: ${widget.selectedLocation}',
-                      style: GoogleFonts.spaceMono(
-                        color: activeColor,
-                        fontSize: 10.0,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
+              if (widget.config.showGpsOnHud)
+                Positioned(
+                  bottom: 24.0,
+                  left: 24.0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'DEST: ${widget.config.destinationLabel}',
+                        style: GoogleFonts.spaceMono(
+                          color: activeColor,
+                          fontSize: 9.0,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'LAT: 34.0522° N',
-                      style: GoogleFonts.spaceMono(
-                        color: activeColor,
-                        fontSize: 10.0,
-                        letterSpacing: 1.0,
+                      Text(
+                        'LAT: ${_lat.toStringAsFixed(5)}',
+                        style: GoogleFonts.spaceMono(color: activeColor, fontSize: 9.0),
                       ),
-                    ),
-                    Text(
-                      'LNG: 118.2437° W',
-                      style: GoogleFonts.spaceMono(
-                        color: activeColor,
-                        fontSize: 10.0,
-                        letterSpacing: 1.0,
+                      Text(
+                        'LNG: ${_lng.toStringAsFixed(5)}',
+                        style: GoogleFonts.spaceMono(color: activeColor, fontSize: 9.0),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
               // Corner brackets (design.md §Cards & Modules)
               Positioned.fill(
@@ -614,7 +646,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                         const Icon(Icons.close, color: dangerColor, size: 12.0),
                         const SizedBox(width: 4.0),
                         Text(
-                          'TERMINATE SIM',
+                          'END RIDE',
                           style: GoogleFonts.spaceGrotesk(
                             color: dangerColor,
                             fontSize: 9.0,
@@ -753,7 +785,15 @@ class _BootOverlay extends StatelessWidget {
 class _TopHudBar extends StatelessWidget {
   final Color borderColor;
   final Color activeColor;
-  const _TopHudBar({required this.borderColor, required this.activeColor});
+  final double speed;
+  final String threat;
+
+  const _TopHudBar({
+    required this.borderColor,
+    required this.activeColor,
+    required this.speed,
+    required this.threat,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -770,7 +810,7 @@ class _TopHudBar extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'VELOCITY',
+                        'ARGUSX',
                         style: GoogleFonts.spaceGrotesk(
                           color: const Color(0xFFE5E2E3),
                           fontSize: 12.0,
@@ -778,7 +818,10 @@ class _TopHudBar extends StatelessWidget {
                           letterSpacing: 2.0,
                         ),
                       ),
-                      Icon(Icons.speed, color: activeColor, size: 14.0),
+                      Text(
+                        '${speed.toInt()} km/h',
+                        style: GoogleFonts.spaceMono(color: activeColor, fontSize: 10),
+                      ),
                     ],
                   ),
                 ),
@@ -795,7 +838,7 @@ class _TopHudBar extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'SYS.CORE STAT',
+                        'THREAT: $threat',
                         style: GoogleFonts.spaceGrotesk(
                           color: const Color(0xFFE5E2E3),
                           fontSize: 12.0,
@@ -951,32 +994,3 @@ class _MiniToggle extends StatelessWidget {
     );
   }
 }
-
-// ── Dotted line painter for POI markers ─────────────────────────────
-class _DottedLinePainter extends CustomPainter {
-  final Color color;
-  _DottedLinePainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    double startY = 0;
-    while (startY < size.height) {
-      canvas.drawLine(
-        Offset(0, startY),
-        Offset(0, startY + 4),
-        paint,
-      );
-      startY += 8;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DottedLinePainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-

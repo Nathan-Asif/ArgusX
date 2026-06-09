@@ -6,6 +6,7 @@ import '../widgets/tech_panel.dart';
 import '../widgets/circular_gauge.dart';
 import '../widgets/event_log.dart';
 import '../widgets/argus_ring.dart';
+import '../config/argusx_config.dart';
 import '../services/websocket_service.dart';
 
 class MissionControlView extends StatefulWidget {
@@ -38,7 +39,8 @@ class _MissionControlViewState extends State<MissionControlView> with AutomaticK
   bool _isLiveMode = false;
   // Android emulator → 10.0.2.2 reaches host localhost.
   // Real device on same WiFi → replace with your PC's LAN IP.
-  String _serverUrl = 'ws://10.0.2.2:8000/ws/pulse';
+  String _serverUrl = ArgusXConfig.wsUrl;
+  Timer? _livePulseTimer;
 
   // ── Safety Pulse Lifecycle / Activity Model (PRD §7) ──────────────
   int _activePipelineStep = 0;
@@ -77,6 +79,7 @@ class _MissionControlViewState extends State<MissionControlView> with AutomaticK
   @override
   void dispose() {
     _simTimer?.cancel();
+    _livePulseTimer?.cancel();
     _wsSub?.cancel();
     _wsStateSub?.cancel();
     _ws.dispose();
@@ -102,6 +105,7 @@ class _MissionControlViewState extends State<MissionControlView> with AutomaticK
   // ── Live backend integration ──────────────────────────────────────
   Future<void> _toggleLiveMode() async {
     if (_isLiveMode) {
+      _livePulseTimer?.cancel();
       await _ws.disconnect();
       if (mounted) setState(() => _isLiveMode = false);
     } else {
@@ -109,6 +113,10 @@ class _MissionControlViewState extends State<MissionControlView> with AutomaticK
       await _ws.connect(_serverUrl);
       await _wsSub?.cancel();
       _wsSub = _ws.responses.listen(_applyBackendResponse);
+      _ws.sendPulse(speed: _simSpeed, lat: _simLat, lng: _simLng);
+      _livePulseTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        _ws.sendPulse(speed: _simSpeed, lat: _simLat, lng: _simLng);
+      });
     }
   }
 
@@ -135,7 +143,7 @@ class _MissionControlViewState extends State<MissionControlView> with AutomaticK
       }
     });
     // Keep the loop alive — send fresh telemetry back.
-    _ws.sendTelemetry(speed: _simSpeed, lat: _simLat, lng: _simLng);
+    _ws.sendPulse(speed: _simSpeed, lat: _simLat, lng: _simLng);
   }
 
   @override

@@ -100,6 +100,7 @@ class ArgusXWebSocketRoutes:
                             "hud_mode": result.get("hud_mode", "Sentry_Active"),
                             "navigation": result.get("navigation", {}),
                             "pinned_pois": result.get("pinned_pois", []),
+                            "hazards": result.get("hazards", []),
                             "destination": destination,
                             "route_visualization": route_visualization or {},
                         }

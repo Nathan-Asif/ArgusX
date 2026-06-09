@@ -8,7 +8,9 @@ import '../views/simulation_parameters_view.dart';
 import '../views/operator_profile_view.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final String riderId;
+
+  const DashboardScreen({super.key, required this.riderId});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -121,15 +123,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   });
                 },
                 physics: const BouncingScrollPhysics(),
-                children: const [
+                children: [
                   // Index 0: Mission Control (Grid View Icon)
-                  MissionControlView(),
-                  // Index 1: Camera HUD Overlay (Video Icon)
-                  CameraHudView(),
+                  const MissionControlView(),
+                  // Index 1: Ride Setup → Camera HUD (Video Icon)
+                  CameraHudView(riderId: widget.riderId),
                   // Index 2: Simulation Parameters (Construction Icon)
-                  SimulationParametersView(),
+                  const SimulationParametersView(),
                   // Index 3: Operator Profile (Person Icon) — PRD §5.2
-                  OperatorProfileView(),
+                  const OperatorProfileView(),
                 ],
               ),
             ),

@@ -2,17 +2,18 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-/// Connection state for the ArgusX Safety Pulse WebSocket.
 enum WsConnectionState { disconnected, connecting, connected, error }
 
-/// Parsed outbound packet from the FastAPI backend (PRD §6.1).
 class ArgusXPulseResponse {
-  final String threatLevel;   // "NORMAL" | "WARNING" | "CRITICAL"
-  final String hudMode;       // "Standby" | "Sentry_Active" | "Hazard_Alert" | "Navigation"
+  final String threatLevel;
+  final String hudMode;
   final List<String> uiCommands;
   final String enrichedContext;
   final Map<String, dynamic> navigation;
   final List<dynamic> pinnedPois;
+  final List<dynamic> hazards;
+  final Map<String, dynamic>? destination;
+  final Map<String, dynamic> routeVisualization;
 
   const ArgusXPulseResponse({
     required this.threatLevel,
@@ -21,6 +22,9 @@ class ArgusXPulseResponse {
     required this.enrichedContext,
     required this.navigation,
     required this.pinnedPois,
+    required this.hazards,
+    this.destination,
+    required this.routeVisualization,
   });
 
   factory ArgusXPulseResponse.fromJson(Map<String, dynamic> json) {
@@ -31,34 +35,22 @@ class ArgusXPulseResponse {
       enrichedContext: json['enriched_context'] as String? ?? '',
       navigation: Map<String, dynamic>.from(json['navigation'] as Map? ?? {}),
       pinnedPois: List<dynamic>.from(json['pinned_pois'] as List? ?? []),
+      hazards: List<dynamic>.from(json['hazards'] as List? ?? []),
+      destination: json['destination'] as Map<String, dynamic>?,
+      routeVisualization:
+          Map<String, dynamic>.from(json['route_visualization'] as Map? ?? {}),
     );
   }
 }
 
-/// Manages the bi-directional WebSocket connection to the FastAPI
-/// Safety Pulse endpoint (`ws://<host>/ws/pulse`).
-///
-/// Usage:
-/// ```dart
-/// final svc = ArgusXWebSocketService();
-/// svc.connect('ws://192.168.1.10:8000/ws/pulse');
-/// svc.responses.listen((r) { ... });
-/// svc.sendTelemetry(speed: 55.0, lat: 24.86, lng: 67.01);
-/// svc.disconnect();
-/// ```
 class ArgusXWebSocketService {
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
 
-  final _responseController =
-      StreamController<ArgusXPulseResponse>.broadcast();
-  final _stateController =
-      StreamController<WsConnectionState>.broadcast();
+  final _responseController = StreamController<ArgusXPulseResponse>.broadcast();
+  final _stateController = StreamController<WsConnectionState>.broadcast();
 
-  /// Emits every decoded backend response packet.
   Stream<ArgusXPulseResponse> get responses => _responseController.stream;
-
-  /// Emits connection lifecycle state changes.
   Stream<WsConnectionState> get connectionState => _stateController.stream;
 
   WsConnectionState _currentState = WsConnectionState.disconnected;
@@ -69,14 +61,11 @@ class ArgusXWebSocketService {
     _stateController.add(s);
   }
 
-  /// Opens a connection to [uri] (e.g. `ws://192.168.1.10:8000/ws/pulse`).
-  /// Safe to call multiple times — disconnects any previous channel first.
   Future<void> connect(String uri) async {
     await disconnect();
     _setState(WsConnectionState.connecting);
     try {
       _channel = WebSocketChannel.connect(Uri.parse(uri));
-      // Wait for the underlying socket to be ready.
       await _channel!.ready;
       _setState(WsConnectionState.connected);
 
@@ -85,9 +74,7 @@ class ArgusXWebSocketService {
           try {
             final json = jsonDecode(raw as String) as Map<String, dynamic>;
             _responseController.add(ArgusXPulseResponse.fromJson(json));
-          } catch (_) {
-            // Malformed frame — ignore, keep connection alive.
-          }
+          } catch (_) {}
         },
         onError: (_) => _setState(WsConnectionState.error),
         onDone: () => _setState(WsConnectionState.disconnected),
@@ -98,32 +85,41 @@ class ArgusXWebSocketService {
     }
   }
 
-  /// Sends a telemetry frame to the backend.
-  /// [frameData] is an optional base64-encoded JPEG string.
-  void sendTelemetry({
+  void sendPulse({
     required double speed,
     required double lat,
     required double lng,
     String frameData = '',
     String sessionId = 'flutter-session',
     String riderId = 'operator-01',
+    Map<String, dynamic>? destination,
+    Map<String, dynamic>? routeContext,
+    Map<String, dynamic>? routeVisualization,
+    int routeStepIndex = 0,
   }) {
     if (_currentState != WsConnectionState.connected) return;
-    final payload = jsonEncode({
+
+    final payload = <String, dynamic>{
       'speed': speed,
       'coordinates': {'lat': lat, 'lng': lng},
       'frame_data': frameData,
       'session_id': sessionId,
       'rider_id': riderId,
-    });
+    };
+    if (destination != null) payload['destination'] = destination;
+    if (routeContext != null) payload['route_context'] = routeContext;
+    if (routeVisualization != null) {
+      payload['route_visualization'] = routeVisualization;
+    }
+    if (routeStepIndex > 0) payload['route_step_index'] = routeStepIndex;
+
     try {
-      _channel?.sink.add(payload);
+      _channel?.sink.add(jsonEncode(payload));
     } catch (_) {
       _setState(WsConnectionState.error);
     }
   }
 
-  /// Closes the WebSocket connection gracefully.
   Future<void> disconnect() async {
     await _sub?.cancel();
     await _channel?.sink.close();
@@ -132,7 +128,6 @@ class ArgusXWebSocketService {
     _setState(WsConnectionState.disconnected);
   }
 
-  /// Must be called when the owning widget is disposed.
   Future<void> dispose() async {
     await disconnect();
     await _responseController.close();

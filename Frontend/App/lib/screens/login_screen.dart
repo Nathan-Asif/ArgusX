@@ -1,13 +1,75 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/auth_service.dart';
 import '../widgets/grid_background.dart';
 import '../widgets/tech_panel.dart';
 import '../widgets/tech_input.dart';
 import '../widgets/tech_button.dart';
 import 'dashboard_screen.dart';
 
-class LoginScreen extends StatelessWidget {
-  const LoginScreen({super.key});
+class LoginScreen extends StatefulWidget {
+  final ArgusXAuthService authService;
+
+  const LoginScreen({super.key, required this.authService});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isRegister = false;
+  bool _busy = false;
+  String? _error;
+
+  Future<void> _submit() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _error = 'Email and password required.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      if (!widget.authService.isConfigured) {
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const DashboardScreen(riderId: 'demo-rider'),
+            ),
+          );
+        }
+        return;
+      }
+      if (_isRegister) {
+        await widget.authService.signUp(email: email, password: password);
+      } else {
+        await widget.authService.signIn(email: email, password: password);
+      }
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => DashboardScreen(riderId: widget.authService.riderId),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,58 +190,42 @@ class LoginScreen extends StatelessWidget {
                           const SizedBox(height: 28.0),
 
                           // Operator ID / Email
-                          const TechInput(
+                          TechInput(
                             label: 'OPERATOR ID / EMAIL',
-                            hintText: 'ENTER OPERATOR DESIGNATION...',
+                            hintText: 'operator@argusx.io',
                             prefixIcon: Icons.badge_outlined,
+                            controller: _emailController,
                           ),
                           const SizedBox(height: 20.0),
-
-                          // Decryption Key
-                          const TechInput(
-                            label: 'DECRYPTION KEY',
+                          TechInput(
+                            label: 'PASSWORD',
                             hintText: '••••••••••••••••',
                             prefixIcon: Icons.key_outlined,
                             isPassword: true,
+                            controller: _passwordController,
                           ),
+                          if (_error != null) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              _error!,
+                              style: GoogleFonts.inter(color: const Color(0xFFFF5252), fontSize: 11),
+                            ),
+                          ],
                           const SizedBox(height: 32.0),
-
-                          // Initiate Sync Button
                           TechButton(
-                            label: 'INITIATE SYSTEM SYNC',
+                            label: _busy
+                                ? 'SYNCING...'
+                                : (_isRegister ? 'CREATE ACCOUNT' : 'SIGN IN'),
                             icon: Icons.sync_lock_outlined,
-                            onTap: () {
-                              Future.delayed(const Duration(seconds: 2), () {
-                                if (context.mounted) {
-                                  Navigator.of(context).pushReplacement(
-                                    PageRouteBuilder(
-                                      pageBuilder: (context, animation, secondaryAnimation) =>
-                                          const DashboardScreen(),
-                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                        const begin = Offset(0.0, 1.0);
-                                        const end = Offset.zero;
-                                        const curve = Curves.easeOutCubic;
-                                        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-                                        var offsetAnimation = animation.drive(tween);
-                                        return SlideTransition(
-                                          position: offsetAnimation,
-                                          child: child,
-                                        );
-                                      },
-                                      transitionDuration: const Duration(milliseconds: 600),
-                                    ),
-                                  );
-                                }
-                              });
-                            },
+                            onTap: _busy ? () {} : _submit,
                           ),
                           const SizedBox(height: 24.0),
-
-                          // Request Access Clearance Link
                           Center(
                             child: _HoverText(
-                              text: 'REQUEST ACCESS CLEARANCE',
-                              onTap: () {},
+                              text: _isRegister
+                                  ? 'ALREADY HAVE ACCESS? SIGN IN'
+                                  : 'NEW OPERATOR? CREATE ACCOUNT',
+                              onTap: () => setState(() => _isRegister = !_isRegister),
                             ),
                           ),
                         ],
