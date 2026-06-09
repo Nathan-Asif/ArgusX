@@ -24,6 +24,7 @@ from api.argusx_navigation_routes import ArgusXNavigationRoutes
 from api.argusx_websocket_routes import ArgusXWebSocketRoutes
 from config.argusx_settings import ArgusXSettings, get_settings
 from database.argusx_database import ArgusXDatabase
+from database.argusx_persistence import ArgusXPersistence
 from graph.argusx_agent_graph import ArgusXAgentGraph
 from services.argusx_compliance_client import ArgusXComplianceClient
 from services.argusx_google_maps_client import ArgusXGoogleMapsClient
@@ -41,13 +42,17 @@ class ArgusXApplication:
 
         # --- Subsystems (composition root) ---
         self.database = ArgusXDatabase(self.settings)
+        self.persistence = ArgusXPersistence(self.database)
         self.vector_store = ArgusXVectorStore(self.settings)
         self.agent_graph = ArgusXAgentGraph(
             settings=self.settings,
             database=self.database,
             vector_store=self.vector_store,
         )
-        self.compliance_client = ArgusXComplianceClient(self.settings)
+        self.compliance_client = ArgusXComplianceClient(
+            self.settings,
+            persistence=self.persistence,
+        )
         self.maps_client = ArgusXGoogleMapsClient(self.settings)
 
         # --- HTTP application ---
@@ -80,6 +85,7 @@ class ArgusXApplication:
             agent_graph=self.agent_graph,
             compliance_client=self.compliance_client,
             maps_client=self.maps_client,
+            persistence=self.persistence,
         )
         navigation_routes = ArgusXNavigationRoutes(maps_client=self.maps_client)
         compliance_routes = ArgusXComplianceRoutes(

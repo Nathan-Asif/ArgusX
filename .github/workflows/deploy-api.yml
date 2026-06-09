@@ -1,0 +1,64 @@
+name: Deploy API (argusx-api.codemelodies.com)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Backend/**"
+      - "deploy/**"
+      - ".github/workflows/deploy-api.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VPS_API_PATH: /var/www/html/argusx-api.codemelodies.com
+  VPS_DEPLOY_PATH: /var/www/html/argusx-deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.ARGUSX_VPS_SSH_KEY }}" > ~/.ssh/argusx-access
+          chmod 600 ~/.ssh/argusx-access
+          ssh-keyscan -p "${{ secrets.ARGUSX_VPS_PORT }}" -H "${{ secrets.ARGUSX_VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Rsync deploy helpers
+        run: |
+          rsync -avz deploy/ \
+            -e "ssh -p ${{ secrets.ARGUSX_VPS_PORT }} -i ~/.ssh/argusx-access" \
+            ${{ secrets.ARGUSX_VPS_USER }}@${{ secrets.ARGUSX_VPS_HOST }}:${{ env.VPS_DEPLOY_PATH }}/
+
+      - name: Rsync Backend
+        run: |
+          rsync -avz --delete \
+            --exclude '.env' \
+            --exclude '.venv' \
+            --exclude '__pycache__' \
+            --exclude '*.pyc' \
+            --exclude '.pytest_cache' \
+            --exclude 'Microservices/compliance_service/target' \
+            -e "ssh -p ${{ secrets.ARGUSX_VPS_PORT }} -i ~/.ssh/argusx-access" \
+            Backend/ \
+            ${{ secrets.ARGUSX_VPS_USER }}@${{ secrets.ARGUSX_VPS_HOST }}:${{ env.VPS_API_PATH }}/
+
+      - name: Install Python deps and restart API
+        run: |
+          ssh -p "${{ secrets.ARGUSX_VPS_PORT }}" -i ~/.ssh/argusx-access \
+            "${{ secrets.ARGUSX_VPS_USER }}@${{ secrets.ARGUSX_VPS_HOST }}" \
+            "bash ${{ env.VPS_DEPLOY_PATH }}/scripts/vps-post-deploy-api.sh ${{ env.VPS_API_PATH }}"
+
+      - name: Health check
+        continue-on-error: true
+        run: |
+          sleep 8
+          curl -fsS "https://argusx-api.codemelodies.com/health"

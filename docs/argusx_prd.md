@@ -26,7 +26,7 @@
 |   +---------------------------------------------------------------------------------+   |
 |   |               FASTAPI APPLICATION LAYER & CORE AGENT KERNEL                     |   |
 |   |  - High-Concurrency Asynchronous Streaming Handlers                             |   |
-|   |  - LangGraph Multi-Agent Reasoning Architecture                                 |   |
+|   |  - LangGraph 3-Agent Pipeline (Perception → Context RAG → Routing Engine)       |   |
 |   +-------------------+-------------------------------------------------------------+   |
 +-----------------------|-----------------------------------------------------------------+
                         | Asynchronous Event Egress (REST HTTP POST)
@@ -162,7 +162,25 @@ The project is executed by a 4-member engineering team distributed across specia
 * **Spatial Grounding & Pinning:** Real-world points of interest (POIs) are discovered through camera streams and "pinned" stereoscopically with 3D holographic data bubbles displaying live contextual data[cite: 14].
 * **Autonomous UI Navigation:** A context-aware state machine that dynamically manages UI clutter[cite: 15, 35]. The interface hides non-essential widgets during high-speed travel and broadens critical telemetry/navigation overlays during complex maneuvers[cite: 15].
 
-### 5.2 Orchestration & Administrative Ecosystem (Server & Web)
+### 5.2 LangGraph Multi-Agent Pipeline (3 Agents)
+
+Each Safety Pulse telemetry frame from the mobile client is processed through a **linear LangGraph state machine** (`Backend/graph/argusx_agent_graph.py`). All agents share a typed `ArgusXState` object and run in this order:
+
+```
+START → perception → context_rag → routing_engine → END
+```
+
+| # | Agent | Node ID | Implementation | Responsibility | Primary outputs |
+|---|-------|---------|----------------|----------------|-----------------|
+| **1** | **Perception Agent** | `perception` | `graph/nodes/argusx_perception.py` | Spatial awareness — analyses live camera frames (base64 JPEG) or demo `fixture:*` tokens using **Gemini Flash**; extracts hazards (pedestrians, opening doors, cross-traffic, etc.) | `hazards[]`, `perception_source` |
+| **2** | **Context RAG Agent** | `context_rag` | `graph/nodes/argusx_context_rag.py` | Retrieval-augmented grounding — queries the local **FAISS** vector index for nearby high-risk spatial zones; builds `enriched_context` from GPS, destination, route step, and hazards; emits pinned POIs (skipped for SF demo zones when Google Maps navigation is active) | `spatial_context[]`, `enriched_context`, `pinned_pois[]` |
+| **3** | **Routing Engine Agent** | `routing_engine` | `graph/nodes/argusx_routing_engine.py` | Decision & HUD orchestration — computes `threat_level` (NORMAL/WARNING/CRITICAL), selects `hud_mode`, produces turn-by-turn `navigation` (arrow, instruction, `voice_prompt`), and issues `ui_commands` (e.g. `SHOW_ROUTE_MAP`, `TRIGGER_HUD_ALERTS`) | `threat_level`, `hud_mode`, `navigation`, `ui_commands` |
+
+**Compliance hand-off:** When the Routing Engine sets `threat_level` to `WARNING` or `CRITICAL`, the FastAPI orchestrator asynchronously POSTs a threat event to the **Java Compliance Microservice** for audit logging (SDA patterns: Mediator, Factory, Builder, Observer).
+
+**WebSocket contract:** Inbound pulse carries `speed`, `coordinates`, `frame_data`, `session_id`, `rider_id`, `destination`, `route_context`; outbound response returns agent outputs above plus `route_visualization` and `hazards` for the Flutter HUD overlays.
+
+### 5.3 Orchestration & Administrative Ecosystem (Server & Web)
 * **Centralized Sentry Orchestration:** A highly concurrent, Python-based backend hub that coordinates streaming data flows, handles stateless protocols, and routes agentic reasoning requests between active mobile clients and cloud intelligence layers[cite: 10].
 * **Java Compliance & Auditing Service:** A reliable microservice that intercepts validated threat flags to calculate compliance records, manage historical data packages, and process records using formal software design methodologies.
 * **Tesla-Style Fleet Tracking:** An administrative command dashboard supplying real-time global visualizations of all active users, detailing precise location data, active connectivity status, and streaming safety telemetry[cite: 11].

@@ -7,11 +7,13 @@ This is the bi-directional channel the Flutter HUD connects to.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from database.argusx_persistence import ArgusXPersistence
 from graph.argusx_agent_graph import ArgusXAgentGraph
 from graph.argusx_state import ArgusXState, Destination, RouteContext, RouteVisualization
 from services.argusx_compliance_client import ArgusXComplianceClient
@@ -28,10 +30,12 @@ class ArgusXWebSocketRoutes:
         agent_graph: ArgusXAgentGraph,
         compliance_client: ArgusXComplianceClient,
         maps_client: ArgusXGoogleMapsClient,
+        persistence: ArgusXPersistence | None = None,
     ) -> None:
         self._agent_graph = agent_graph
         self._compliance_client = compliance_client
         self._maps_client = maps_client
+        self._persistence = persistence
         self.router = APIRouter(tags=["pulse"])
         self._register()
 
@@ -71,9 +75,13 @@ class ArgusXWebSocketRoutes:
         async def pulse(websocket: WebSocket) -> None:
             await websocket.accept()
             logger.info("Safety Pulse client connected.")
+            session_id: str | None = None
+            rider_id: str | None = None
             try:
                 while True:
                     payload = await websocket.receive_json()
+                    session_id = str(payload.get("session_id", "ws-session"))
+                    rider_id = str(payload.get("rider_id", "anonymous"))
                     destination, route_context, route_visualization = await self._resolve_route_context(
                         payload
                     )
@@ -92,18 +100,26 @@ class ArgusXWebSocketRoutes:
                         session_id=payload.get("session_id", "ws-session"),
                         rider_id=payload.get("rider_id", "anonymous"),
                     )
-                    await websocket.send_json(
-                        {
-                            "threat_level": result.get("threat_level", "NORMAL"),
-                            "ui_commands": result.get("ui_commands", []),
-                            "enriched_context": result.get("enriched_context", ""),
-                            "hud_mode": result.get("hud_mode", "Sentry_Active"),
-                            "navigation": result.get("navigation", {}),
-                            "pinned_pois": result.get("pinned_pois", []),
-                            "hazards": result.get("hazards", []),
-                            "destination": destination,
-                            "route_visualization": route_visualization or {},
-                        }
-                    )
+                    response_payload = {
+                        "threat_level": result.get("threat_level", "NORMAL"),
+                        "ui_commands": result.get("ui_commands", []),
+                        "enriched_context": result.get("enriched_context", ""),
+                        "hud_mode": result.get("hud_mode", "Sentry_Active"),
+                        "navigation": result.get("navigation", {}),
+                        "pinned_pois": result.get("pinned_pois", []),
+                        "hazards": result.get("hazards", []),
+                        "destination": destination,
+                        "route_visualization": route_visualization or {},
+                    }
+                    await websocket.send_json(response_payload)
+
+                    if self._persistence is not None:
+                        asyncio.create_task(
+                            self._persistence.on_pulse(payload, response_payload)
+                        )
             except WebSocketDisconnect:
                 logger.info("Safety Pulse client disconnected.")
+                if self._persistence is not None:
+                    asyncio.create_task(
+                        self._persistence.on_disconnect(rider_id, session_id)
+                    )

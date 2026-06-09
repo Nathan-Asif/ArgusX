@@ -1,0 +1,26 @@
+# /etc/apache2/sites-available/argusx-api.codemelodies.com.conf
+#
+# Requires: sudo a2enmod proxy proxy_http proxy_wstunnel rewrite headers ssl
+# Enable:   sudo a2ensite argusx-api.codemelodies.com.conf
+# Reload:    sudo apache2ctl configtest && sudo systemctl reload apache2
+#
+# Backend: systemd argusx-api → uvicorn on 127.0.0.1:8025
+
+<VirtualHost *:80>
+    ServerName argusx-api.codemelodies.com
+
+    ProxyPreserveHost On
+    ProxyRequests Off
+
+    # WebSocket Safety Pulse (/ws/pulse) + HTTP (REST, /health, /docs)
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} =websocket [NC]
+    RewriteRule /(.*) ws://127.0.0.1:8025/$1 [P,L]
+    RewriteCond %{HTTP:Upgrade} !=websocket [NC]
+    RewriteRule /(.*) http://127.0.0.1:8025/$1 [P,L]
+
+    ProxyPassReverse / http://127.0.0.1:8025/
+
+    ErrorLog ${APACHE_LOG_DIR}/argusx-api-error.log
+    CustomLog ${APACHE_LOG_DIR}/argusx-api-access.log combined
+</VirtualHost>

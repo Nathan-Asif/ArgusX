@@ -1,0 +1,20 @@
+# TEMPORARY — use BEFORE SSL cert exists, then replace with argusx-api.codemelodies.com.conf
+# Or run certbot --apache which upgrades this automatically.
+
+<VirtualHost *:80>
+    ServerName argusx-api.codemelodies.com
+
+    ProxyPreserveHost On
+    ProxyRequests Off
+
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} =websocket [NC]
+    RewriteRule /(.*) ws://127.0.0.1:8025/$1 [P,L]
+    RewriteCond %{HTTP:Upgrade} !=websocket [NC]
+    RewriteRule /(.*) http://127.0.0.1:8025/$1 [P,L]
+
+    ProxyPassReverse / http://127.0.0.1:8025/
+
+    ErrorLog ${APACHE_LOG_DIR}/argusx-api-error.log
+    CustomLog ${APACHE_LOG_DIR}/argusx-api-access.log combined
+</VirtualHost>

@@ -1,0 +1,16 @@
+# /etc/apache2/sites-available/argusx.codemelodies.com.conf
+#
+# PM2 port is written to argusx-web-proxy.conf on each web deploy.
+# Requires: sudo a2enmod proxy proxy_http headers ssl
+
+<VirtualHost *:80>
+    ServerName argusx.codemelodies.com
+
+    ProxyPreserveHost On
+    ProxyRequests Off
+
+    IncludeOptional /var/www/html/argusx-deploy/apache/argusx-web-proxy.conf
+
+    ErrorLog ${APACHE_LOG_DIR}/argusx-web-error.log
+    CustomLog ${APACHE_LOG_DIR}/argusx-web-access.log combined
+</VirtualHost>

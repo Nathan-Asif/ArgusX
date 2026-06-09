@@ -46,17 +46,32 @@ Removed sci-fi: VELOCITY, VECTOR NODE, RECHARGE MATRIX, CYBER-GRID, right-side w
 
 ## Build & run
 
+**Production APK / physical phone** (defaults in `argusx_config.dart`):
+
+- API: `https://argusx-api.codemelodies.com`
+- WS: `wss://argusx-api.codemelodies.com/ws/pulse`
+
 ```bash
 cd Frontend/App
 flutter pub get
-flutter run \
-  --dart-define=ARGUSX_WS_URL=ws://10.0.2.2:8000/ws/pulse \
-  --dart-define=ARGUSX_API_URL=http://10.0.2.1:8000 \
+flutter build apk \
   --dart-define=ARGUSX_SUPABASE_URL=<url> \
   --dart-define=ARGUSX_SUPABASE_ANON_KEY=<key>
 ```
 
-Use `127.0.0.1` for web/desktop; `10.0.2.2` for Android emulator; LAN IP for physical device.
+**Local dev overrides:**
+
+```bash
+# Chrome / desktop → laptop backend
+flutter run -d chrome \
+  --dart-define=ARGUSX_WS_URL=ws://127.0.0.1:8000/ws/pulse \
+  --dart-define=ARGUSX_API_URL=http://127.0.0.1:8000
+
+# Android emulator
+flutter run \
+  --dart-define=ARGUSX_WS_URL=ws://10.0.2.2:8000/ws/pulse \
+  --dart-define=ARGUSX_API_URL=http://10.0.2.2:8000
+```
 
 ## Phase 2 (later)
 

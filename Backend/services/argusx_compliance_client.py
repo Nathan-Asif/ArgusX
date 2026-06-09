@@ -15,6 +15,7 @@ from typing import Any, Optional
 import httpx
 
 from config.argusx_settings import ArgusXSettings
+from database.argusx_persistence import ArgusXPersistence
 from graph.argusx_state import ArgusXState
 
 logger = logging.getLogger("argusx.compliance_client")
@@ -27,8 +28,13 @@ COMPLIANCE_HEALTH_PATH = "/api/compliance/health"
 class ArgusXComplianceClient:
     """Fire-and-forget egress client for the Java compliance layer."""
 
-    def __init__(self, settings: ArgusXSettings) -> None:
+    def __init__(
+        self,
+        settings: ArgusXSettings,
+        persistence: ArgusXPersistence | None = None,
+    ) -> None:
         self._settings = settings
+        self._persistence = persistence
         self._client: Optional[httpx.AsyncClient] = None
         self._reachable: bool = False
 
@@ -96,6 +102,10 @@ class ArgusXComplianceClient:
 
         payload = self._build_threat_payload(state, session_id=session_id, rider_id=rider_id)
         asyncio.create_task(self._post_threat_event(payload))
+        if self._persistence is not None:
+            asyncio.create_task(
+                self._persistence.on_safety_event(payload, rider_id, session_id)
+            )
 
     async def post_threat_event(
         self,

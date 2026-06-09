@@ -1,0 +1,80 @@
+name: Deploy Web (argusx.codemelodies.com)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Frontend/Web/**"
+      - "deploy/**"
+      - ".github/workflows/deploy-web.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VPS_WEB_PATH: /var/www/html/argusx.codemelodies.com
+  VPS_DEPLOY_PATH: /var/www/html/argusx-deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: Frontend/Web/package-lock.json
+
+      - name: Build Next.js (standalone)
+        working-directory: Frontend/Web
+        env:
+          NEXT_PUBLIC_ARGUSX_API_URL: https://argusx-api.codemelodies.com
+          NEXT_PUBLIC_ARGUSX_WS_URL: wss://argusx-api.codemelodies.com/ws/pulse
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Package standalone bundle
+        working-directory: Frontend/Web
+        run: |
+          rm -rf /tmp/argusx-web-bundle
+          mkdir -p /tmp/argusx-web-bundle
+          cp -r .next/standalone/. /tmp/argusx-web-bundle/
+          mkdir -p /tmp/argusx-web-bundle/.next
+          cp -r .next/static /tmp/argusx-web-bundle/.next/static
+          cp -r public /tmp/argusx-web-bundle/public
+
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.ARGUSX_VPS_SSH_KEY }}" > ~/.ssh/argusx-access
+          chmod 600 ~/.ssh/argusx-access
+          ssh-keyscan -p "${{ secrets.ARGUSX_VPS_PORT }}" -H "${{ secrets.ARGUSX_VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Rsync deploy helpers
+        run: |
+          rsync -avz deploy/ \
+            -e "ssh -p ${{ secrets.ARGUSX_VPS_PORT }} -i ~/.ssh/argusx-access" \
+            ${{ secrets.ARGUSX_VPS_USER }}@${{ secrets.ARGUSX_VPS_HOST }}:${{ env.VPS_DEPLOY_PATH }}/
+
+      - name: Rsync web bundle
+        run: |
+          rsync -avz --delete \
+            -e "ssh -p ${{ secrets.ARGUSX_VPS_PORT }} -i ~/.ssh/argusx-access" \
+            /tmp/argusx-web-bundle/ \
+            ${{ secrets.ARGUSX_VPS_USER }}@${{ secrets.ARGUSX_VPS_HOST }}:${{ env.VPS_WEB_PATH }}/
+
+      - name: Restart web portal
+        run: |
+          ssh -p "${{ secrets.ARGUSX_VPS_PORT }}" -i ~/.ssh/argusx-access \
+            "${{ secrets.ARGUSX_VPS_USER }}@${{ secrets.ARGUSX_VPS_HOST }}" \
+            "bash ${{ env.VPS_DEPLOY_PATH }}/scripts/vps-post-deploy-web.sh ${{ env.VPS_WEB_PATH }} ${{ env.VPS_DEPLOY_PATH }}"

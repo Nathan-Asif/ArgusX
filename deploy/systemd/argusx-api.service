@@ -1,0 +1,17 @@
+[Unit]
+Description=ArgusX FastAPI Orchestrator (uvicorn — proxied by Apache2)
+After=network.target
+
+[Service]
+Type=simple
+User=webadmin
+Group=webadmin
+WorkingDirectory=/var/www/html/argusx-api.codemelodies.com
+EnvironmentFile=-/var/www/html/argusx-api.codemelodies.com/.env
+# Port 8025 — avoids shared VPS ports 8000, 8002, 8010, 8080 (see deploy/argusx-ports.conf)
+ExecStart=/var/www/html/argusx-api.codemelodies.com/.venv/bin/uvicorn argusx_main:app --host 127.0.0.1 --port 8025 --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

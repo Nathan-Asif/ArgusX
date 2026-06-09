@@ -1,0 +1,19 @@
+# DEPRECATED — web portal uses PM2 + dynamic port (see deploy/scripts/vps-post-deploy-web.sh).
+[Unit]
+Description=ArgusX Next.js Web Portal (deprecated — use PM2)
+After=network.target
+
+[Service]
+Type=simple
+User=webadmin
+Group=webadmin
+WorkingDirectory=/var/www/html/argusx.codemelodies.com
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/node /var/www/html/argusx.codemelodies.com/server.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

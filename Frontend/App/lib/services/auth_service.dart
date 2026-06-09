@@ -29,12 +29,24 @@ class ArgusXAuthService {
     await client.auth.signInWithPassword(email: email, password: password);
   }
 
-  Future<void> signUp({required String email, required String password}) async {
+  Future<void> signUp({
+    required String email,
+    required String password,
+    String? fullName,
+  }) async {
     final client = _client;
     if (client == null) {
       throw Exception('Supabase is not configured.');
     }
-    await client.auth.signUp(email: email, password: password);
+    await client.auth.signUp(
+      email: email,
+      password: password,
+      data: {
+        if (fullName != null && fullName.trim().isNotEmpty)
+          'full_name': fullName.trim(),
+        'role': 'customer',
+      },
+    );
   }
 
   Future<void> signOut() async {

@@ -1,0 +1,13 @@
+# TEMPORARY — use BEFORE SSL cert exists, then replace with argusx.codemelodies.com.conf
+
+<VirtualHost *:80>
+    ServerName argusx.codemelodies.com
+
+    ProxyPreserveHost On
+    ProxyRequests Off
+
+    IncludeOptional /var/www/html/argusx-deploy/apache/argusx-web-proxy.conf
+
+    ErrorLog ${APACHE_LOG_DIR}/argusx-web-error.log
+    CustomLog ${APACHE_LOG_DIR}/argusx-web-access.log combined
+</VirtualHost>
