@@ -62,13 +62,19 @@ jobs:
 
       - name: Rsync deploy helpers
         run: |
-          rsync -avz deploy/ \
+          rsync -avz --no-owner --no-group deploy/ \
             -e "ssh -p ${{ secrets.ARGUSX_VPS_PORT }} -i ~/.ssh/argusx-access" \
             ${{ secrets.ARGUSX_VPS_USER }}@${{ secrets.ARGUSX_VPS_HOST }}:${{ env.VPS_DEPLOY_PATH }}/
 
+      - name: Prepare VPS scripts
+        run: |
+          ssh -p "${{ secrets.ARGUSX_VPS_PORT }}" -i ~/.ssh/argusx-access \
+            "${{ secrets.ARGUSX_VPS_USER }}@${{ secrets.ARGUSX_VPS_HOST }}" \
+            "chmod +x ${{ env.VPS_DEPLOY_PATH }}/scripts/*.sh"
+
       - name: Rsync web bundle
         run: |
-          rsync -avz --delete \
+          rsync -avz --delete --no-owner --no-group \
             -e "ssh -p ${{ secrets.ARGUSX_VPS_PORT }} -i ~/.ssh/argusx-access" \
             /tmp/argusx-web-bundle/ \
             ${{ secrets.ARGUSX_VPS_USER }}@${{ secrets.ARGUSX_VPS_HOST }}:${{ env.VPS_WEB_PATH }}/

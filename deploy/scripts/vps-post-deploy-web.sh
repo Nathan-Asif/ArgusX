@@ -36,7 +36,7 @@ if [ -f "$PORT_FILE" ]; then
   PREFERRED="$(tr -d '[:space:]' < "$PORT_FILE")"
 fi
 
-PORT="$("$SCRIPT_DIR/find-free-port.sh" "$WEB_PORT_START" "$WEB_PORT_END" "$PREFERRED")"
+PORT="$(bash "$SCRIPT_DIR/find-free-port.sh" "$WEB_PORT_START" "$WEB_PORT_END" "$PREFERRED")"
 echo "$PORT" > "$PORT_FILE"
 
 cat > "$APP_DIR/ecosystem.config.cjs" <<EOF

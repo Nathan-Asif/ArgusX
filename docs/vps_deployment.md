@@ -174,3 +174,5 @@ pm2 status argusx-web
 | WebSocket fail | `sudo a2enmod proxy_wstunnel rewrite`; reload apache2 |
 | Apache config error | `sudo apache2ctl configtest` |
 | Port clash | `sudo ss -tlnp`; remove `.runtime-port` and redeploy web; API is fixed on **8025** |
+| CI rsync `Permission denied` | `sudo chown -R webadmin:webadmin /var/www/html/argusx-*`; fix nested root files: `sudo find /var/www/html/argusx-api.codemelodies.com ! -user webadmin -exec chown webadmin:webadmin {} +` |
+| CI `find-free-port.sh: Permission denied` | `chmod +x /var/www/html/argusx-deploy/scripts/*.sh` then re-run web workflow |

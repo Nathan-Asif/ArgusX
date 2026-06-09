@@ -34,13 +34,19 @@ jobs:
 
       - name: Rsync deploy helpers
         run: |
-          rsync -avz deploy/ \
+          rsync -avz --no-owner --no-group deploy/ \
             -e "ssh -p ${{ secrets.ARGUSX_VPS_PORT }} -i ~/.ssh/argusx-access" \
             ${{ secrets.ARGUSX_VPS_USER }}@${{ secrets.ARGUSX_VPS_HOST }}:${{ env.VPS_DEPLOY_PATH }}/
 
+      - name: Prepare VPS app directory
+        run: |
+          ssh -p "${{ secrets.ARGUSX_VPS_PORT }}" -i ~/.ssh/argusx-access \
+            "${{ secrets.ARGUSX_VPS_USER }}@${{ secrets.ARGUSX_VPS_HOST }}" \
+            "mkdir -p ${{ env.VPS_API_PATH }} && chmod +x ${{ env.VPS_DEPLOY_PATH }}/scripts/*.sh && touch ${{ env.VPS_API_PATH }}/.deploy-write-test && rm -f ${{ env.VPS_API_PATH }}/.deploy-write-test"
+
       - name: Rsync Backend
         run: |
-          rsync -avz --delete \
+          rsync -avz --delete --no-owner --no-group \
             --exclude '.env' \
             --exclude '.venv' \
             --exclude '__pycache__' \
