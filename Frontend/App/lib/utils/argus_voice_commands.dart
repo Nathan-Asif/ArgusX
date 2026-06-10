@@ -60,6 +60,16 @@ class ArgusVoiceCommands {
     return command;
   }
 
+  /// Manual-mic mode: no wake word, no command verb required. The user toggled
+  /// the mic specifically to speak a destination, so accept either an explicit
+  /// command ("navigate to X") or the bare spoken place ("Nazimabad, Karachi").
+  static String? looseDestination(String text) {
+    final command = extractCommand(text);
+    if (command != null) return command;
+    final cleaned = _cleanPlace(text.trim());
+    return cleaned.length >= 3 ? cleaned : null;
+  }
+
   static String? _extractLooseAfterWake(String text) {
     final afterWake = text.replaceFirst(_wakePattern, '').trim();
     if (afterWake.isEmpty) return null;

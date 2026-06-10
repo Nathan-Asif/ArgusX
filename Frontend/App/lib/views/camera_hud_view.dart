@@ -116,10 +116,9 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
       return;
     }
 
-    // Prime mic within this click gesture (Chrome requirement), but NEVER block
-    // the ride launch on it — voice has a tap-to-enable fallback on the HUD.
+    // Voice is opt-in during the ride via the on-screen mic toggle, so the mic
+    // starts off. The service is shared with the ride HUD which drives it.
     final rideWakeWord = ArgusWakeWordService();
-    unawaited(_primeMicSafely(rideWakeWord));
 
     if (_routeContext == null) {
       await _resolveNavigation(label);
@@ -170,14 +169,6 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
     );
   }
 
-  Future<void> _primeMicSafely(ArgusWakeWordService service) async {
-    try {
-      await service.primeFromUserGesture().timeout(const Duration(seconds: 4));
-    } catch (_) {
-      // Non-fatal: the ride HUD offers a tap-to-enable voice fallback.
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -202,7 +193,7 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
           const SizedBox(height: 8),
           Text(
             'Set your destination, confirm the route, then start the ride. '
-            'While riding, say "Argus navigate to …" anytime to change destination.',
+            'While riding, tap the mic to speak a new destination anytime.',
             style: ArgusFonts.body(color: const Color(0xFF998CA0), fontSize: 11),
           ),
           const SizedBox(height: 20),

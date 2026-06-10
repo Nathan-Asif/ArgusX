@@ -28,6 +28,7 @@ class ArgusWakeWordService {
   bool _gesturePrimed = false;
   bool _awaitingCommand = false;
   bool _starting = false;
+  bool manualMode = false;
   Timer? _commandTimeout;
   Timer? _pauseSafetyTimer;
   Timer? _transcriptDebounce;
@@ -49,6 +50,7 @@ class ArgusWakeWordService {
 
   bool get isActive => _active;
   bool get isGesturePrimed => _gesturePrimed;
+  bool get isListening => _active && !_paused;
 
   String get _speechLocale => kIsWeb ? 'en-US' : 'en_US';
 
@@ -171,6 +173,52 @@ class ArgusWakeWordService {
     _setState(ArgusWakeWordState.listening, 'Listening for "Argus"...');
     await _startListenSession();
     _startWatchdog();
+  }
+
+  /// Push-to-talk style: start listening immediately for a spoken destination,
+  /// with NO wake word. Call from a button tap (satisfies web user-gesture).
+  Future<void> startManual({
+    required void Function(String place) onDestination,
+    void Function(String message)? onStatus,
+  }) async {
+    bind(onDestination: onDestination, onStatus: onStatus);
+    manualMode = true;
+
+    if (!_speechReady) {
+      await initialize();
+    }
+    if (!_speechReady) {
+      _setState(
+        ArgusWakeWordState.micError,
+        kIsWeb
+            ? 'Voice needs Chrome/Edge and microphone permission.'
+            : 'Voice commands unavailable on this device.',
+      );
+      return;
+    }
+
+    _active = true;
+    _paused = false;
+    _gesturePrimed = true;
+    _awaitingCommand = false;
+    _lastHandledText = '';
+    _lastDebouncedText = '';
+    _setState(ArgusWakeWordState.listening, 'Listening — say your destination');
+    await _startListenSession();
+    _startWatchdog();
+  }
+
+  /// Stop manual listening (mic toggled off, or after a destination is captured).
+  Future<void> stopManual() async {
+    _active = false;
+    _paused = false;
+    _awaitingCommand = false;
+    _commandTimeout?.cancel();
+    _transcriptDebounce?.cancel();
+    _watchdog?.cancel();
+    _pauseSafetyTimer?.cancel();
+    await _speech.stop();
+    _setState(ArgusWakeWordState.idle, 'Mic off');
   }
 
   void pause() {
@@ -303,6 +351,16 @@ class ArgusWakeWordService {
     if (!_active || _paused) return;
     if (text == _lastHandledText) return;
 
+    // Manual mic mode: no wake word — the whole utterance is the destination.
+    if (manualMode) {
+      final place = ArgusVoiceCommands.looseDestination(text);
+      if (place != null) {
+        _lastHandledText = text;
+        _deliverDestination(place);
+      }
+      return;
+    }
+
     // After "Argus", accept either an explicit command or a loose place.
     if (_awaitingCommand) {
       final place = ArgusVoiceCommands.extractCommand(text) ??
@@ -343,7 +401,15 @@ class ArgusWakeWordService {
 
   Future<void> _deliverDestination(String place) async {
     _setState(ArgusWakeWordState.processing, 'Updating route to $place...');
-    pause();
+    if (manualMode) {
+      // One-shot: stop the recognizer; the screen turns the toggle off once the
+      // route resolves.
+      _watchdog?.cancel();
+      _transcriptDebounce?.cancel();
+      await _speech.stop();
+    } else {
+      pause();
+    }
     _onDestination?.call(place);
   }
 }

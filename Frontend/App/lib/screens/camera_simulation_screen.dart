@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:camera/camera.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
@@ -56,6 +55,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
   bool _resolvingDestination = false;
   ArgusWakeWordState _wakeWordState = ArgusWakeWordState.idle;
   String _lastHeardVoice = '';
+  bool _micOn = false;
   double _movedSinceLastStepM = 0;
   DateTime? _lastStepAdvanceAt;
   static const _pulseInterval = Duration(seconds: 3);
@@ -158,19 +158,19 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     try {
       await _navVoice.initialize().timeout(const Duration(seconds: 4));
       _navVoice.enabled = _voiceGuidance;
-      _navVoice.onSpeakStart = () async => _wakeWord.pause();
-      _navVoice.onSpeakEnd = () async => _wakeWord.resume();
+      // If the mic happens to be on while Argus speaks, pause so the TTS isn't
+      // captured as input; resume only if the mic toggle is still on.
+      _navVoice.onSpeakStart = () async {
+        if (_micOn) _wakeWord.pause();
+      };
+      _navVoice.onSpeakEnd = () async {
+        if (_micOn) _wakeWord.resume();
+      };
     } catch (_) {
       // Continue without nav TTS.
     }
 
     await _startGpsTracking();
-
-    try {
-      await _startWakeWordListening().timeout(const Duration(seconds: 4));
-    } catch (_) {
-      // Voice commands unavailable; ride continues.
-    }
 
     // Connect the Safety Pulse backend and begin streaming frames.
     try {
@@ -182,10 +182,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
 
     if (widget.config.hasNavigation) {
       try {
-        _wakeWord.pause();
         await _navVoice.announceRideStart(_destinationLabel);
-        await Future.delayed(const Duration(milliseconds: 2500));
-        await _wakeWord.resume();
       } catch (_) {
         // Ignore announcement failures.
       }
@@ -221,8 +218,22 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     }
   }
 
-  Future<void> _startWakeWordListening() async {
-    await _wakeWord.start(
+  Future<void> _toggleMic() async {
+    if (_micOn) {
+      await _wakeWord.stopManual();
+      if (!mounted) return;
+      setState(() {
+        _micOn = false;
+        _wakeWordState = _wakeWord.state;
+      });
+      return;
+    }
+
+    setState(() {
+      _micOn = true;
+      _lastHeardVoice = '';
+    });
+    await _wakeWord.startManual(
       onDestination: _onVoiceDestinationChange,
       onStatus: (_) {
         if (!mounted) return;
@@ -232,18 +243,9 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
         });
       },
     );
-    if (mounted) {
-      setState(() {
-        _wakeWordState = _wakeWord.state;
-        _lastHeardVoice = _wakeWord.lastHeard;
-      });
-    }
-  }
-
-  Future<void> _onHudTapActivateVoice() async {
-    await _wakeWord.activateFromUserGesture();
     if (!mounted) return;
     setState(() {
+      _micOn = _wakeWord.isActive;
       _wakeWordState = _wakeWord.state;
       _lastHeardVoice = _wakeWord.lastHeard;
     });
@@ -294,10 +296,14 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
       await _wakeWord.speak('Could not find a route to $place.');
     } finally {
       _resolvingDestination = false;
+      // One-shot: drop the mic after a destination is captured.
+      await _wakeWord.stopManual();
       if (mounted) {
-        setState(() => _wakeWordState = _wakeWord.state);
+        setState(() {
+          _micOn = false;
+          _wakeWordState = _wakeWord.state;
+        });
       }
-      await _wakeWord.resume();
     }
   }
 
@@ -538,10 +544,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: kIsWeb ? _onHudTapActivateVoice : null,
-          child: Stack(
+        body: Stack(
           fit: StackFit.expand,
           children: [
             // ── 1. Camera feed / states ─────────────────────────────
@@ -785,11 +788,6 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                             _voiceGuidance = val;
                             _navVoice.enabled = val;
                           });
-                          if (val) {
-                            _wakeWord.resume();
-                          } else {
-                            _wakeWord.pause();
-                          }
                         },
                       ),
                     ],
@@ -810,7 +808,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                 ),
               ),
 
-              // Wake-word voice status — top-right, below the WS badge
+              // Voice status — top-right, below the WS badge (manual mic mode)
               if (_wakeWordState != ArgusWakeWordState.idle)
                 Positioned(
                   top: 108.0,
@@ -828,38 +826,24 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                           border: Border.all(
                             color: _wakeWordState == ArgusWakeWordState.micError
                                 ? const Color(0xFFFF5252)
-                                : _wakeWordState == ArgusWakeWordState.awaitingGesture
-                                    ? const Color(0xFFFFB74D)
-                                    : _wakeWordState == ArgusWakeWordState.awaitingCommand
+                                : _wakeWordState == ArgusWakeWordState.processing
                                     ? const Color(0xFFDDB7FF)
-                                    : _wakeWordState == ArgusWakeWordState.paused
-                                        ? const Color(0xFFFFB74D)
-                                        : const Color(0xFF00E676),
+                                    : const Color(0xFF00E676),
                             width: 1.0,
                           ),
                         ),
                         child: Text(
                           _wakeWordState == ArgusWakeWordState.micError
-                              ? 'ARGUS // MIC ERROR'
-                              : _wakeWordState == ArgusWakeWordState.awaitingGesture
-                                  ? 'ARGUS // TAP TO ENABLE'
-                                  : _wakeWordState == ArgusWakeWordState.awaitingCommand
-                                  ? 'ARGUS // AWAITING CMD'
-                                  : _wakeWordState == ArgusWakeWordState.processing
-                                      ? 'ARGUS // ROUTING'
-                                      : _wakeWordState == ArgusWakeWordState.paused
-                                          ? 'ARGUS // PAUSED'
-                                          : 'ARGUS // LISTENING',
+                              ? 'VOICE // MIC ERROR'
+                              : _wakeWordState == ArgusWakeWordState.processing
+                                  ? 'VOICE // ROUTING'
+                                  : 'VOICE // LISTENING',
                           style: ArgusFonts.telemetry(
                             color: _wakeWordState == ArgusWakeWordState.micError
                                 ? const Color(0xFFFF5252)
-                                : _wakeWordState == ArgusWakeWordState.awaitingGesture
-                                    ? const Color(0xFFFFB74D)
-                                    : _wakeWordState == ArgusWakeWordState.awaitingCommand
+                                : _wakeWordState == ArgusWakeWordState.processing
                                     ? const Color(0xFFDDB7FF)
-                                    : _wakeWordState == ArgusWakeWordState.paused
-                                        ? const Color(0xFFFFB74D)
-                                        : const Color(0xFF00E676),
+                                    : const Color(0xFF00E676),
                             fontSize: 8.0,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.0,
@@ -1029,11 +1013,17 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                 ),
               ),
 
-              // Corner brackets (design.md §Cards & Modules)
+              // Corner brackets (design.md §Cards & Modules).
+              // IgnorePointer so this full-screen layer never swallows taps
+              // meant for the controls beneath it (e.g. the mic toggle).
               Positioned.fill(
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: CustomPaint(painter: HudBracketPainter(color: borderColor)),
+                child: IgnorePointer(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: CustomPaint(
+                      painter: HudBracketPainter(color: borderColor),
+                    ),
+                  ),
                 ),
               ),
 
@@ -1069,9 +1059,69 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                   ),
                 ),
               ),
+
+              // Voice mic toggle — LAST child = top of the z-order so nothing
+              // can cover or intercept its taps. Sits above the route map.
+              Positioned(
+                bottom: (_showMap && _routeVisualization.isNotEmpty) ? 190.0 : 24.0,
+                right: 24.0,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _resolvingDestination ? null : _toggleMic,
+                  child: Container(
+                    width: 220.0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12.0,
+                      vertical: 9.0,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.88),
+                      border: Border.all(
+                        color: _micOn
+                            ? const Color(0xFF00E676)
+                            : activeColor.withValues(alpha: 0.55),
+                        width: 1.2,
+                      ),
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _resolvingDestination
+                              ? Icons.sync
+                              : (_micOn ? Icons.mic : Icons.mic_off),
+                          color: _micOn
+                              ? const Color(0xFF00E676)
+                              : activeColor,
+                          size: 15.0,
+                        ),
+                        const SizedBox(width: 8.0),
+                        Flexible(
+                          child: Text(
+                            _resolvingDestination
+                                ? 'ROUTING…'
+                                : (_micOn ? 'LISTENING — TAP TO STOP' : 'TAP TO SPEAK'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: ArgusFonts.display(
+                              color: _micOn
+                                  ? const Color(0xFF00E676)
+                                  : activeColor,
+                              fontSize: 9.0,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ],
           ],
-        ),
         ),
       ),
     );
