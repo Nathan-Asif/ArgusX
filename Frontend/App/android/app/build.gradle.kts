@@ -38,6 +38,15 @@ kotlin {
     jvmToolchain(17)
 }
 
+// Disable Kotlin incremental compilation to fix cross-drive path issues on Windows
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    incremental = false
+}
+
+dependencies {
+    implementation("androidx.concurrent:concurrent-futures:1.1.0")
+}
+
 flutter {
     source = "../.."
 }

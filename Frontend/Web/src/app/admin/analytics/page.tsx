@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
+import { supabase } from "@/lib/supabase";
 import { 
   TrendingUp, 
   ShieldAlert, 
@@ -13,39 +14,81 @@ import {
   Calendar,
   AlertTriangle,
   Clock,
-  ChevronDown
+  ChevronDown,
+  Loader2
 } from "lucide-react";
 
-// Mock Database Records for Rider Analytics
 interface RideRecord {
   id: string;
-  riderName: string;
-  date: string;
-  duration: string;
-  avgSpeed: number;
-  threatsLogged: number;
-  safetyScore: number;
-  status: "COMPLETED" | "FLAGGED";
+  session_id: string;
+  started_at: string;
+  duration_s: number | null;
+  avg_speed_kmh: number | null;
+  threats_count: number;
+  safety_score: number | null;
+  status: string;
+  profiles: { full_name: string | null; email: string } | null;
 }
 
-const mockRecords: RideRecord[] = [
-  { id: "R-8092", riderName: "Rider Neo", date: "2026-06-06", duration: "48 mins", avgSpeed: 64.2, threatsLogged: 2, safetyScore: 94, status: "COMPLETED" },
-  { id: "R-8091", riderName: "Rider Trinity", date: "2026-06-06", duration: "25 mins", avgSpeed: 38.5, threatsLogged: 0, safetyScore: 100, status: "COMPLETED" },
-  { id: "R-8090", riderName: "Rider Morpheus", date: "2026-06-05", duration: "1 hr 12 mins", avgSpeed: 89.1, threatsLogged: 7, safetyScore: 78, status: "FLAGGED" },
-  { id: "R-8089", riderName: "Rider Neo", date: "2026-06-05", duration: "34 mins", avgSpeed: 58.7, threatsLogged: 1, safetyScore: 97, status: "COMPLETED" },
-  { id: "R-8088", riderName: "Rider Cypher", date: "2026-06-04", duration: "15 mins", avgSpeed: 30.1, threatsLogged: 4, safetyScore: 82, status: "FLAGGED" },
-  { id: "R-8087", riderName: "Rider Trinity", date: "2026-06-04", duration: "52 mins", avgSpeed: 42.0, threatsLogged: 0, safetyScore: 100, status: "COMPLETED" },
-  { id: "R-8086", riderName: "Rider Morpheus", date: "2026-06-03", duration: "2 hrs 5 mins", avgSpeed: 94.6, threatsLogged: 12, safetyScore: 65, status: "FLAGGED" }
-];
+interface FleetStats {
+  avgSafetyScore: number;
+  totalThreats: number;
+  totalRiders: number;
+}
+
+function rideStatusLabel(status: string): "COMPLETED" | "FLAGGED" {
+  return status === "completed" ? "COMPLETED" : "FLAGGED";
+}
 
 export default function Analytics() {
-  const [records, setRecords] = useState<RideRecord[]>(mockRecords);
+  const [records, setRecords] = useState<RideRecord[]>([]);
+  const [fleetStats, setFleetStats] = useState<FleetStats>({ avgSafetyScore: 0, totalThreats: 0, totalRiders: 0 });
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"ALL" | "COMPLETED" | "FLAGGED">("ALL");
 
-  const filteredRecords = records.filter(record => {
-    const matchesSearch = record.riderName.toLowerCase().includes(searchTerm.toLowerCase()) || record.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterType === "ALL" ? true : record.status === filterType;
+  useEffect(() => {
+    const client = supabase;
+    if (!client) { setLoading(false); return; }
+
+    const fetchData = async () => {
+      setLoading(true);
+      const [ridesRes, profilesRes] = await Promise.all([
+        client
+          .from("rides")
+          .select("id, session_id, started_at, duration_s, avg_speed_kmh, threats_count, safety_score, status, profiles(full_name, email)")
+          .order("started_at", { ascending: false })
+          .limit(100),
+        client
+          .from("profiles")
+          .select("safety_score, total_rides")
+          .eq("role", "customer"),
+      ]);
+
+      if (ridesRes.data) setRecords(ridesRes.data as unknown as RideRecord[]);
+
+      if (profilesRes.data && profilesRes.data.length > 0) {
+        const scores = profilesRes.data.map((p) => p.safety_score ?? 0);
+        const totalThreats = ridesRes.data?.reduce((sum, r) => sum + (r.threats_count ?? 0), 0) ?? 0;
+        setFleetStats({
+          avgSafetyScore: scores.reduce((a, b) => a + b, 0) / scores.length,
+          totalThreats,
+          totalRiders: profilesRes.data.length,
+        });
+      }
+      setLoading(false);
+    };
+
+    fetchData();
+  }, []);
+
+  const filteredRecords = records.filter((r) => {
+    const label = rideStatusLabel(r.status);
+    const name = r.profiles?.full_name ?? r.profiles?.email ?? "";
+    const matchesSearch =
+      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.session_id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterType === "ALL" ? true : label === filterType;
     return matchesSearch && matchesFilter;
   });
 
@@ -67,7 +110,7 @@ export default function Analytics() {
             </p>
           </div>
 
-          <button className="flex items-center gap-2 bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 px-4 py-2 rounded-lg text-xs text-slate-300 font-bold transition-all duration-300">
+          <button className="flex items-center gap-2 bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 px-4 py-2 rounded-none text-xs text-slate-300 font-bold transition-all duration-300">
             <Download className="w-3.5 h-3.5" />
             Export Database CSV
           </button>
@@ -75,40 +118,46 @@ export default function Analytics() {
 
         {/* Top High-level Stats Cards */}
         <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="glass-panel p-6 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-6 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-xs font-mono uppercase tracking-wider">Average Fleet Safety Score</span>
+              <span className="text-xs font-title uppercase tracking-wider">Average Fleet Safety Score</span>
               <TrendingUp className="w-4 h-4 text-accent-purple" />
             </div>
-            <div className="text-3xl font-black text-white mt-3 font-title">91.4%</div>
+            <div className="text-3xl font-black text-white mt-3 font-title">
+              {loading ? <Loader2 className="w-6 h-6 animate-spin text-accent-purple" /> : `${fleetStats.avgSafetyScore.toFixed(1)}%`}
+            </div>
             <div className="text-[10px] text-accent-green mt-1.5 font-bold flex items-center gap-1">
-              <span>+1.2% VS LAST WEEK</span>
+              <span>LIVE FROM DATABASE</span>
             </div>
           </div>
 
-          <div className="glass-panel p-6 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-6 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-xs font-mono uppercase tracking-wider">Total Threats Blocked</span>
+              <span className="text-xs font-title uppercase tracking-wider">Total Threats Blocked</span>
               <ShieldAlert className="w-4 h-4 text-accent-pink" />
             </div>
-            <div className="text-3xl font-black text-white mt-3 font-title">382</div>
+            <div className="text-3xl font-black text-white mt-3 font-title">
+              {loading ? "…" : fleetStats.totalThreats}
+            </div>
             <div className="text-[10px] text-accent-pink mt-1.5 font-bold flex items-center gap-1">
-              <span>28 CRITICAL INTERVENTIONS</span>
+              <span>FLEET-WIDE INTERVENTIONS</span>
             </div>
           </div>
 
-          <div className="glass-panel p-6 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-6 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-xs font-mono uppercase tracking-wider">Riders Logged</span>
+              <span className="text-xs font-title uppercase tracking-wider">Riders Logged</span>
               <Database className="w-4 h-4 text-accent-cyan" />
             </div>
-            <div className="text-3xl font-black text-white mt-3 font-title">18 Users</div>
-            <div className="text-[10px] text-slate-500 mt-1.5 font-mono">ACTIVE IN DATABASE</div>
+            <div className="text-3xl font-black text-white mt-3 font-title">
+              {loading ? "…" : `${fleetStats.totalRiders} Users`}
+            </div>
+            <div className="text-[10px] text-slate-500 mt-1.5 font-title uppercase tracking-wider">Active in Database</div>
           </div>
 
-          <div className="glass-panel p-6 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-6 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-xs font-mono uppercase tracking-wider">Avg Response Time</span>
+              <span className="text-xs font-title uppercase tracking-wider">Avg Response Time</span>
               <Clock className="w-4 h-4 text-yellow-500" />
             </div>
             <div className="text-3xl font-black text-white mt-3 font-title">14ms</div>
@@ -121,7 +170,7 @@ export default function Analytics() {
           
           {/* Left Area: Analytical Bar Charts / Visualizations (5 Cols) */}
           <div className="lg:col-span-5 flex flex-col gap-6">
-            <div className="glass-panel p-6 rounded-2xl border border-white/5 flex-1">
+            <div className="glass-panel tech-panel p-6 rounded-none border border-white/5 flex-1">
               <h3 className="font-title font-bold text-slate-200 mb-6 flex items-center gap-2">
                 <LineChart className="w-4 h-4 text-accent-purple" />
                 Fleet Threat Distribution By Category
@@ -134,8 +183,8 @@ export default function Analytics() {
                     <span>Opening Car Doors (Perception Node)</span>
                     <span className="font-bold text-slate-200">42%</span>
                   </div>
-                  <div className="w-full h-2 bg-white/[0.02] rounded-full overflow-hidden border border-white/5">
-                    <div className="h-full bg-gradient-to-r from-accent-purple to-accent-pink rounded-full" style={{ width: "42%" }} />
+                  <div className="w-full h-2 bg-white/[0.02] rounded-none overflow-hidden border border-white/5">
+                    <div className="h-full bg-gradient-to-r from-accent-purple to-accent-pink rounded-none" style={{ width: "42%" }} />
                   </div>
                 </div>
 
@@ -144,8 +193,8 @@ export default function Analytics() {
                     <span>Distracted Pedestrians</span>
                     <span className="font-bold text-slate-200">28%</span>
                   </div>
-                  <div className="w-full h-2 bg-white/[0.02] rounded-full overflow-hidden border border-white/5">
-                    <div className="h-full bg-gradient-to-r from-accent-purple to-accent-pink rounded-full" style={{ width: "28%" }} />
+                  <div className="w-full h-2 bg-white/[0.02] rounded-none overflow-hidden border border-white/5">
+                    <div className="h-full bg-gradient-to-r from-accent-purple to-accent-pink rounded-none" style={{ width: "28%" }} />
                   </div>
                 </div>
 
@@ -154,8 +203,8 @@ export default function Analytics() {
                     <span>Road Debris / Potholes</span>
                     <span className="font-bold text-slate-200">18%</span>
                   </div>
-                  <div className="w-full h-2 bg-white/[0.02] rounded-full overflow-hidden border border-white/5">
-                    <div className="h-full bg-gradient-to-r from-accent-purple to-accent-pink rounded-full" style={{ width: "18%" }} />
+                  <div className="w-full h-2 bg-white/[0.02] rounded-none overflow-hidden border border-white/5">
+                    <div className="h-full bg-gradient-to-r from-accent-purple to-accent-pink rounded-none" style={{ width: "18%" }} />
                   </div>
                 </div>
 
@@ -164,14 +213,14 @@ export default function Analytics() {
                     <span>Sudden Braking / Rear-end hazard</span>
                     <span className="font-bold text-slate-200">12%</span>
                   </div>
-                  <div className="w-full h-2 bg-white/[0.02] rounded-full overflow-hidden border border-white/5">
-                    <div className="h-full bg-gradient-to-r from-accent-purple to-accent-pink rounded-full" style={{ width: "12%" }} />
+                  <div className="w-full h-2 bg-white/[0.02] rounded-none overflow-hidden border border-white/5">
+                    <div className="h-full bg-gradient-to-r from-accent-purple to-accent-pink rounded-none" style={{ width: "12%" }} />
                   </div>
                 </div>
               </div>
 
               {/* Summary note */}
-              <div className="mt-8 p-4 rounded-xl bg-white/[0.01] border border-white/5 text-xs text-slate-400 leading-relaxed">
+              <div className="mt-8 p-4 rounded-none bg-white/[0.01] border border-white/5 text-xs text-slate-400 leading-relaxed">
                 <span className="text-accent-purple font-bold">Insight:</span> Multimodal Perception Nodes detect opening vehicle doors as the most common hazard in dense urban zones, prompting high rates of HUD decluttering and alert triggers.
               </div>
             </div>
@@ -179,7 +228,7 @@ export default function Analytics() {
 
           {/* Right Area: Interactive Database Query View (7 Cols) */}
           <div className="lg:col-span-7 flex flex-col gap-6">
-            <div className="glass-panel p-6 rounded-2xl border border-white/5 flex flex-col flex-1 overflow-hidden">
+            <div className="glass-panel tech-panel p-6 rounded-none border border-white/5 flex flex-col flex-1 overflow-hidden">
               
               {/* Controls */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -196,7 +245,7 @@ export default function Analytics() {
                       placeholder="Search rider/record ID..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="bg-black/60 border border-white/10 rounded-lg py-1.5 pl-8 pr-3 text-xs text-slate-200 focus:border-accent-purple focus:outline-none w-48 font-mono"
+                      className="bg-black/60 border border-white/10 rounded-none py-1.5 pl-8 pr-3 text-xs text-slate-200 focus:border-accent-purple focus:outline-none w-48 font-mono"
                     />
                     <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
                   </div>
@@ -206,7 +255,7 @@ export default function Analytics() {
                     <select
                       value={filterType}
                       onChange={(e) => setFilterType(e.target.value as any)}
-                      className="bg-black/60 border border-white/10 rounded-lg py-1.5 pl-3 pr-8 text-xs text-slate-200 focus:border-accent-purple focus:outline-none appearance-none cursor-pointer"
+                      className="bg-black/60 border border-white/10 rounded-none py-1.5 pl-3 pr-8 text-xs text-slate-200 focus:border-accent-purple focus:outline-none appearance-none cursor-pointer"
                     >
                       <option value="ALL" className="bg-slate-900 text-slate-200">ALL STATUS</option>
                       <option value="COMPLETED" className="bg-slate-900 text-slate-200">COMPLETED</option>
@@ -231,30 +280,32 @@ export default function Analytics() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredRecords.map((r) => (
+                    {loading ? (
+                      <tr><td colSpan={6} className="text-center py-10"><Loader2 className="w-5 h-5 animate-spin text-accent-purple mx-auto" /></td></tr>
+                    ) : filteredRecords.map((r) => (
                       <tr key={r.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-all">
-                        <td className="py-3 px-2 font-mono text-accent-purple font-bold">{r.id}</td>
-                        <td className="py-3 px-2 font-bold text-slate-200">{r.riderName}</td>
-                        <td className="py-3 px-2 text-slate-400 font-mono">{r.date}</td>
+                        <td className="py-3 px-2 font-mono text-accent-purple font-bold text-[10px]">{r.session_id.slice(0, 12).toUpperCase()}</td>
+                        <td className="py-3 px-2 font-bold text-slate-200">{r.profiles?.full_name ?? r.profiles?.email ?? "—"}</td>
+                        <td className="py-3 px-2 text-slate-400 font-mono">{r.started_at.split("T")[0]}</td>
                         <td className="py-3 px-2 font-bold">
-                          <span className={r.safetyScore < 80 ? "text-accent-pink" : r.safetyScore < 95 ? "text-accent-yellow" : "text-accent-green"}>
-                            {r.safetyScore}/100
+                          <span className={(r.safety_score ?? 0) < 80 ? "text-accent-pink" : (r.safety_score ?? 0) < 95 ? "text-accent-yellow" : "text-accent-green"}>
+                            {r.safety_score ? `${r.safety_score}/100` : "—"}
                           </span>
                         </td>
-                        <td className="py-3 px-2 text-slate-300 font-mono">{r.threatsLogged}</td>
+                        <td className="py-3 px-2 text-slate-300 font-mono">{r.threats_count}</td>
                         <td className="py-3 px-2 text-right">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            r.status === "COMPLETED" ? "bg-accent-green/10 text-accent-green" : "bg-accent-red/10 text-accent-red"
+                          <span className={`px-2 py-0.5 rounded-none text-[10px] font-bold ${
+                            rideStatusLabel(r.status) === "COMPLETED" ? "bg-accent-green/10 text-accent-green" : "bg-accent-red/10 text-accent-red"
                           }`}>
-                            {r.status}
+                            {rideStatusLabel(r.status)}
                           </span>
                         </td>
                       </tr>
                     ))}
-                    {filteredRecords.length === 0 && (
+                    {!loading && filteredRecords.length === 0 && (
                       <tr>
                         <td colSpan={6} className="text-center py-6 text-slate-600 italic">
-                          No matching logs found in records store.
+                          No ride records found in the database.
                         </td>
                       </tr>
                     )}

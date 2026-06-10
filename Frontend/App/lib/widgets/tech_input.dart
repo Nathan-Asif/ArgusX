@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 import 'tech_panel.dart';
 
 class TechInput extends StatefulWidget {
@@ -47,9 +47,9 @@ class _TechInputState extends State<TechInput> {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFFDDB7FF);
+    final activeColor = Theme.of(context).colorScheme.primary;
     const inactiveColor = Color(0xFF353436);
-    const focusGlowColor = Color(0xFF8E2DE2);
+    final focusGlowColor = Theme.of(context).colorScheme.secondary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,7 +57,7 @@ class _TechInputState extends State<TechInput> {
         // High-Tech Label Above the Input
         Text(
           widget.label.toUpperCase(),
-          style: GoogleFonts.spaceGrotesk(
+          style: ArgusFonts.display(
             color: _isFocused ? activeColor : const Color(0xFF998CA0),
             fontSize: 12.0,
             fontWeight: FontWeight.w600,
@@ -90,7 +90,7 @@ class _TechInputState extends State<TechInput> {
               focusNode: _focusNode,
               controller: widget.controller,
               obscureText: _obscureText,
-              style: GoogleFonts.inter(
+              style: ArgusFonts.body(
                 color: const Color(0xFFE5E2E3),
                 fontSize: 15.0,
                 letterSpacing: _obscureText ? 3.0 : 0.5,
@@ -98,7 +98,7 @@ class _TechInputState extends State<TechInput> {
               cursorColor: activeColor,
               decoration: InputDecoration(
                 hintText: widget.hintText.toUpperCase(),
-                hintStyle: GoogleFonts.spaceGrotesk(
+                hintStyle: ArgusFonts.display(
                   color: const Color(0xFF4D4354),
                   fontSize: 13.0,
                   letterSpacing: 1.2,

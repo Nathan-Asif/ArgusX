@@ -2,73 +2,75 @@
 class ArgusVoiceCommands {
   static const wakeWord = 'argus';
 
-  static final _wakePattern = RegExp(r'\bargus\b', caseSensitive: false);
+  /// Chrome's speech engine frequently mishears "Argus" — accept close variants.
+  static final _wakePattern = RegExp(
+    r'\b(argus|argos|argis|argas|argess|argusx|argus x|august|hargus|argerse|are gus|arcus|argoose)\b',
+    caseSensitive: false,
+  );
 
-  static final _placePatterns = [
-    RegExp(
-      r'argus.*?set (?:my )?(?:the )?destination (?:to|for) (.+)$',
-      caseSensitive: false,
-    ),
-    RegExp(
-      r'argus.*?set (?:my )?(?:the )?location (?:to|for) (.+)$',
-      caseSensitive: false,
-    ),
-    RegExp(r'argus.*?renavigate (?:to )?(.+)$', caseSensitive: false),
-    RegExp(r'argus.*?navigate (?:to|towards) (.+)$', caseSensitive: false),
-    RegExp(r'argus.*?go to (.+)$', caseSensitive: false),
-    RegExp(r'argus.*?change destination (?:to|for) (.+)$', caseSensitive: false),
-    RegExp(r'argus.*?route (?:me )?to (.+)$', caseSensitive: false),
-    RegExp(r'set (?:my )?(?:the )?destination (?:to|for) (.+)$', caseSensitive: false),
-    RegExp(r'set (?:my )?(?:the )?location (?:to|for) (.+)$', caseSensitive: false),
-    RegExp(r'renavigate (?:to )?(.+)$', caseSensitive: false),
+  /// Strong, intent-bearing patterns. These are safe to act on even WITHOUT
+  /// the wake word (useful for testing and noisy mic conditions).
+  static final _commandPatterns = [
+    RegExp(r'set (?:my |the )?destination (?:to|for|as) (.+)$', caseSensitive: false),
+    RegExp(r'set (?:my |the )?location (?:to|for|as) (.+)$', caseSensitive: false),
+    RegExp(r'change (?:my |the )?destination (?:to|for|as) (.+)$', caseSensitive: false),
+    RegExp(r'change (?:my |the )?location (?:to|for|as) (.+)$', caseSensitive: false),
+    RegExp(r're-?navigate (?:to |towards )?(.+)$', caseSensitive: false),
     RegExp(r'navigate (?:to|towards) (.+)$', caseSensitive: false),
-    RegExp(r'change destination (?:to|for) (.+)$', caseSensitive: false),
-    RegExp(r'route (?:me )?to (.+)$', caseSensitive: false),
-    RegExp(r'go to (.+)$', caseSensitive: false),
+    RegExp(r'route (?:me )?(?:to|towards) (.+)$', caseSensitive: false),
     RegExp(r'take me to (.+)$', caseSensitive: false),
+    RegExp(r'drive (?:me )?to (.+)$', caseSensitive: false),
+    RegExp(r'go to (.+)$', caseSensitive: false),
   ];
 
   static bool containsWakeWord(String text) => _wakePattern.hasMatch(text.trim());
 
   static bool isWakeWordOnly(String text) {
     final normalized = text.trim().toLowerCase().replaceAll(RegExp(r'[.,!?]+$'), '');
-    if (normalized == wakeWord) return true;
-    return RegExp(r'^(hey |ok )?argus[!.]?$').hasMatch(normalized);
+    return RegExp(r'^(hey |ok |okay )?(argus|argos|argis|argas|august|hargus|arcus)$')
+        .hasMatch(normalized);
+  }
+
+  /// Matches an explicit destination command (no wake word required).
+  static String? extractCommand(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return null;
+    for (final pattern in _commandPatterns) {
+      final match = pattern.firstMatch(trimmed);
+      if (match != null) {
+        final place = _cleanPlace(match.group(1)!);
+        if (place.length >= 2) return place;
+      }
+    }
+    return null;
   }
 
   static String? extractPlace(String text, {bool requireWakeWord = true}) {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return null;
-    if (requireWakeWord && !containsWakeWord(trimmed)) return null;
 
-    for (final pattern in _placePatterns) {
-      final match = pattern.firstMatch(trimmed);
-      if (match != null) {
-        return _cleanPlace(match.group(1)!);
-      }
-    }
+    final command = extractCommand(trimmed);
 
     if (requireWakeWord) {
+      if (!containsWakeWord(trimmed)) return null;
+      if (command != null) return command;
       return _extractLooseAfterWake(trimmed);
     }
-    return _extractLooseDestination(trimmed);
+
+    return command;
   }
 
   static String? _extractLooseAfterWake(String text) {
     final afterWake = text.replaceFirst(_wakePattern, '').trim();
     if (afterWake.isEmpty) return null;
 
-    final fromCommand = extractPlace(afterWake, requireWakeWord: false);
+    final fromCommand = extractCommand(afterWake);
     if (fromCommand != null) return fromCommand;
 
-    return _extractLooseDestination(afterWake);
-  }
-
-  static String? _extractLooseDestination(String text) {
     final loose = RegExp(
       r'(?:destination|location|to|for)\s+(.+)$',
       caseSensitive: false,
-    ).firstMatch(text);
+    ).firstMatch(afterWake);
     if (loose != null) {
       final place = _cleanPlace(loose.group(1)!);
       if (place.length >= 3) return place;

@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 import '../config/argusx_config.dart';
 import '../models/sim_launch_config.dart';
 import '../utils/hazard_layout.dart';
@@ -59,6 +59,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
   double _movedSinceLastStepM = 0;
   DateTime? _lastStepAdvanceAt;
   static const _pulseInterval = Duration(seconds: 3);
+  late String _activeFixtureToken;
 
   // ── WebSocket backend link ───────────────────────────────────────
   final ArgusXWebSocketService _ws = ArgusXWebSocketService();
@@ -90,6 +91,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     super.initState();
     _wakeWord = widget.wakeWord ?? ArgusWakeWordService();
     _ownsWakeWord = widget.wakeWord == null;
+    _activeFixtureToken = widget.config.fixtureToken;
 
     // Force fullscreen — hide status/nav bars
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -375,14 +377,14 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     _tickNavigationProgress();
     _syncRouteContextPayload();
 
-    String frameData = widget.config.fixtureToken;
-    if (widget.config.useLiveCamera && _isCameraReady && _controller != null) {
+    String frameData = _activeFixtureToken;
+    if (widget.config.useLiveCamera && _isCameraReady && _controller != null && _activeFixtureToken == 'fixture:normal_clear') {
       try {
         final xFile = await _controller!.takePicture();
         final bytes = await xFile.readAsBytes();
         frameData = base64Encode(bytes);
       } catch (_) {
-        frameData = widget.config.fixtureToken;
+        frameData = _activeFixtureToken;
       }
     }
 
@@ -528,9 +530,9 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
   // ── Build ────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFFDDB7FF);
+    final activeColor = Theme.of(context).colorScheme.primary;
     const dangerColor = Color(0xFFFF5252);
-    final borderColor = const Color(0xFFDDB7FF).withValues(alpha: 0.6);
+    final borderColor = Theme.of(context).colorScheme.primary.withValues(alpha: 0.6);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -588,7 +590,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                               color: h['color'] as Color,
                               child: Text(
                                 "${h['threat']} // ${h['distance']}",
-                                style: GoogleFonts.spaceMono(
+                                style: ArgusFonts.telemetry(
                                   color: Colors.black,
                                   fontSize: 8.0,
                                   fontWeight: FontWeight.bold,
@@ -602,7 +604,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                             left: 4,
                             child: Text(
                               h['label'] as String,
-                              style: GoogleFonts.spaceGrotesk(
+                              style: ArgusFonts.display(
                                 color: h['color'] as Color,
                                 fontSize: 9.0,
                                 fontWeight: FontWeight.bold,
@@ -653,6 +655,85 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                   ),
                 ),
 
+              // ── Simulation Scenarios Selector (PRD §5.1) ───────────
+              Positioned(
+                top: 80.0,
+                left: 24.0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 8.0),
+                  width: 130.0,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.85),
+                    border: Border.all(color: activeColor.withValues(alpha: 0.5), width: 1.0),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'SYS.INJECTOR',
+                        style: ArgusFonts.display(
+                          color: activeColor,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 6.0),
+                      _ScenarioBtn(
+                        label: 'NOMINAL',
+                        isActive: _activeFixtureToken == 'fixture:normal_clear',
+                        activeColor: const Color(0xFFDDB7FF),
+                        onTap: () {
+                          setState(() => _activeFixtureToken = 'fixture:normal_clear');
+                          _sendFrame();
+                        },
+                      ),
+                      const SizedBox(height: 4.0),
+                      _ScenarioBtn(
+                        label: 'WARN: DOOR',
+                        isActive: _activeFixtureToken == 'fixture:warning_opening_door',
+                        activeColor: const Color(0xFFFFB74D),
+                        onTap: () {
+                          setState(() => _activeFixtureToken = 'fixture:warning_opening_door');
+                          _sendFrame();
+                        },
+                      ),
+                      const SizedBox(height: 4.0),
+                      _ScenarioBtn(
+                        label: 'WARN: CROSS',
+                        isActive: _activeFixtureToken == 'fixture:warning_cross_traffic',
+                        activeColor: const Color(0xFFFFB74D),
+                        onTap: () {
+                          setState(() => _activeFixtureToken = 'fixture:warning_cross_traffic');
+                          _sendFrame();
+                        },
+                      ),
+                      const SizedBox(height: 4.0),
+                      _ScenarioBtn(
+                        label: 'CRIT: DEBRIS',
+                        isActive: _activeFixtureToken == 'fixture:critical_debris',
+                        activeColor: const Color(0xFFFF5252),
+                        onTap: () {
+                          setState(() => _activeFixtureToken = 'fixture:critical_debris');
+                          _sendFrame();
+                        },
+                      ),
+                      const SizedBox(height: 4.0),
+                      _ScenarioBtn(
+                        label: 'CRIT: PED',
+                        isActive: _activeFixtureToken == 'fixture:critical_pedestrian',
+                        activeColor: const Color(0xFFFF5252),
+                        onTap: () {
+                          setState(() => _activeFixtureToken = 'fixture:critical_pedestrian');
+                          _sendFrame();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
               // ── Overlay toggles ───
               Positioned(
                 bottom: 150.0,
@@ -669,7 +750,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                     children: [
                       Text(
                         'HUD OVERLAYS',
-                        style: GoogleFonts.spaceGrotesk(
+                        style: ArgusFonts.display(
                           color: activeColor,
                           fontSize: 9.0,
                           fontWeight: FontWeight.bold,
@@ -729,11 +810,11 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                 ),
               ),
 
-              // Wake-word voice status — below WS badge
+              // Wake-word voice status — top-right, below the WS badge
               if (_wakeWordState != ArgusWakeWordState.idle)
                 Positioned(
-                  top: 52.0,
-                  right: 16.0,
+                  top: 108.0,
+                  right: 24.0,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -769,7 +850,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                                       : _wakeWordState == ArgusWakeWordState.paused
                                           ? 'ARGUS // PAUSED'
                                           : 'ARGUS // LISTENING',
-                          style: GoogleFonts.spaceMono(
+                          style: ArgusFonts.telemetry(
                             color: _wakeWordState == ArgusWakeWordState.micError
                                 ? const Color(0xFFFF5252)
                                 : _wakeWordState == ArgusWakeWordState.awaitingGesture
@@ -790,7 +871,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                           padding: const EdgeInsets.only(top: 4.0),
                           child: Text(
                             'HEARD: ${_lastHeardVoice.length > 42 ? '${_lastHeardVoice.substring(0, 42)}…' : _lastHeardVoice}',
-                            style: GoogleFonts.spaceMono(
+                            style: ArgusFonts.telemetry(
                               color: const Color(0xFF998CA0),
                               fontSize: 7.0,
                             ),
@@ -800,10 +881,10 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                   ),
                 ),
 
-              // WS live / sim status badge — top-right corner
+              // WS live / sim status badge — top-right but below the top HUD bar to avoid overlap
               Positioned(
-                top: 16.0,
-                right: 16.0,
+                top: 80.0,
+                right: 24.0,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                   decoration: BoxDecoration(
@@ -836,7 +917,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                             : _wsState == WsConnectionState.connecting
                                 ? 'LINKING...'
                                 : 'SIM MODE',
-                        style: GoogleFonts.spaceMono(
+                        style: ArgusFonts.telemetry(
                           color: _wsState == WsConnectionState.connected
                               ? const Color(0xFF00E5FF)
                               : _wsState == WsConnectionState.connecting
@@ -865,7 +946,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                 ),
               ),
 
-              // Bottom-left: GPS + destination (above overlay toggles)
+              // Bottom-left indicators panel (combining REC & GPS to avoid overlap)
               Positioned(
                 bottom: 24.0,
                 left: 24.0,
@@ -873,50 +954,6 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (widget.config.showGpsOnHud) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8.0,
-                          vertical: 6.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.85),
-                          border: Border.all(
-                            color: activeColor.withValues(alpha: 0.5),
-                            width: 1.0,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'DEST: $_destinationLabel',
-                              style: GoogleFonts.spaceMono(
-                                color: activeColor,
-                                fontSize: 9.0,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'GPS: ${_lat.toStringAsFixed(5)}, ${_lng.toStringAsFixed(5)}',
-                              style: GoogleFonts.spaceMono(
-                                color: activeColor,
-                                fontSize: 9.0,
-                              ),
-                            ),
-                            if (_speed > 0)
-                              Text(
-                                'SPD: ${_speed.toInt()} km/h',
-                                style: GoogleFonts.spaceMono(
-                                  color: activeColor,
-                                  fontSize: 9.0,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8.0),
-                    ],
                     FadeTransition(
                       opacity: _blinkAnimation,
                       child: Row(
@@ -924,12 +961,13 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                           Container(
                             width: 10.0,
                             height: 10.0,
+                            // Square marker per design.md §Data Visualization
                             color: dangerColor,
                           ),
                           const SizedBox(width: 8.0),
                           Text(
                             'REC // CH-1',
-                            style: GoogleFonts.spaceGrotesk(
+                            style: ArgusFonts.display(
                               color: dangerColor,
                               fontSize: 14.0,
                               fontWeight: FontWeight.bold,
@@ -939,6 +977,54 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                         ],
                       ),
                     ),
+                    if (widget.config.showGpsOnHud) ...[
+                      const SizedBox(height: 8.0),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.75),
+                          border: Border.all(color: activeColor.withValues(alpha: 0.3), width: 1.0),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'DEST: $_destinationLabel',
+                              style: ArgusFonts.display(
+                                color: activeColor,
+                                fontSize: 9.0,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4.0),
+                            Text(
+                              'LAT: ${_lat.toStringAsFixed(5)}',
+                              style: ArgusFonts.telemetry(
+                                color: activeColor,
+                                fontSize: 9.0,
+                              ),
+                            ),
+                            Text(
+                              'LNG: ${_lng.toStringAsFixed(5)}',
+                              style: ArgusFonts.telemetry(
+                                color: activeColor,
+                                fontSize: 9.0,
+                              ),
+                            ),
+                            if (_speed > 0) ...[
+                              const SizedBox(height: 4.0),
+                              Text(
+                                'SPD: ${_speed.toInt()} km/h',
+                                style: ArgusFonts.telemetry(
+                                  color: activeColor,
+                                  fontSize: 9.0,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -971,7 +1057,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                         const SizedBox(width: 4.0),
                         Text(
                           'END RIDE',
-                          style: GoogleFonts.spaceGrotesk(
+                          style: ArgusFonts.display(
                             color: dangerColor,
                             fontSize: 9.0,
                             fontWeight: FontWeight.bold,
@@ -1035,7 +1121,7 @@ class _CameraErrorView extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               error ?? 'CAMERA_UNAVAILABLE',
-              style: GoogleFonts.spaceMono(
+              style: ArgusFonts.telemetry(
                 color: const Color(0xFFFF5252),
                 fontSize: 12.0,
                 letterSpacing: 2.0,
@@ -1044,7 +1130,7 @@ class _CameraErrorView extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Check browser camera permissions and reload.',
-              style: GoogleFonts.inter(
+              style: ArgusFonts.body(
                 color: const Color(0xFF998CA0),
                 fontSize: 11.0,
               ),
@@ -1089,7 +1175,7 @@ class _BootOverlay extends StatelessWidget {
                   padding: EdgeInsets.only(left: shift),
                   child: Text(
                     bootText,
-                    style: GoogleFonts.spaceMono(
+                    style: ArgusFonts.telemetry(
                       color: const Color(0xFF00E5FF),
                       fontSize: 12.0,
                       fontWeight: FontWeight.bold,
@@ -1136,7 +1222,7 @@ class _TopHudBar extends StatelessWidget {
                     children: [
                       Text(
                         'ARGUSX',
-                        style: GoogleFonts.spaceGrotesk(
+                        style: ArgusFonts.display(
                           color: const Color(0xFFE5E2E3),
                           fontSize: 12.0,
                           fontWeight: FontWeight.bold,
@@ -1145,7 +1231,7 @@ class _TopHudBar extends StatelessWidget {
                       ),
                       Text(
                         '${speed.toInt()} km/h',
-                        style: GoogleFonts.spaceMono(color: activeColor, fontSize: 10),
+                        style: ArgusFonts.telemetry(color: activeColor, fontSize: 10),
                       ),
                     ],
                   ),
@@ -1164,7 +1250,7 @@ class _TopHudBar extends StatelessWidget {
                     children: [
                       Text(
                         'THREAT: $threat',
-                        style: GoogleFonts.spaceGrotesk(
+                        style: ArgusFonts.display(
                           color: const Color(0xFFE5E2E3),
                           fontSize: 12.0,
                           fontWeight: FontWeight.bold,
@@ -1182,7 +1268,7 @@ class _TopHudBar extends StatelessWidget {
                           const SizedBox(width: 4.0),
                           Text(
                             '100%',
-                            style: GoogleFonts.spaceGrotesk(
+                            style: ArgusFonts.display(
                               color: const Color(0xFF00E676),
                               fontSize: 10.0,
                               fontWeight: FontWeight.bold,
@@ -1307,12 +1393,63 @@ class _MiniToggle extends StatelessWidget {
             const SizedBox(width: 6.0),
             Text(
               label,
-              style: GoogleFonts.spaceMono(
+              style: ArgusFonts.telemetry(
                 color: value ? Colors.white : const Color(0xFF998CA0),
                 fontSize: 8.0,
                 fontWeight: FontWeight.bold,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ScenarioBtn extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  const _ScenarioBtn({
+    required this.label,
+    required this.isActive,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
+        decoration: BoxDecoration(
+          color: isActive ? activeColor.withValues(alpha: 0.15) : Colors.transparent,
+          border: Border.all(
+            color: isActive ? activeColor : const Color(0xFF353436),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: ArgusFonts.telemetry(
+                color: isActive ? activeColor : const Color(0xFF998CA0),
+                fontSize: 7.5,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            if (isActive)
+              Container(
+                width: 4.0,
+                height: 4.0,
+                color: activeColor,
+              ),
           ],
         ),
       ),

@@ -1,6 +1,6 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import '../config/argus_fonts.dart';
 
 /// Threat level enum matching PRD §6.1 outbound WebSocket schema.
 /// threat_level: "NORMAL | WARNING | CRITICAL"
@@ -157,20 +157,35 @@ class _ArgusRingState extends State<ArgusRing> with TickerProviderStateMixin {
     return AnimatedBuilder(
       animation: Listenable.merge([_pulseAnim, _rotateAnim, _irisAnim, _flickerAnim]),
       builder: (ctx, _) {
-        return SizedBox(
-          width: widget.size,
-          height: widget.size,
-          child: CustomPaint(
-            painter: _ArgusRingPainter(
-              pulse: _pulseAnim.value,
-              rotate: _rotateAnim.value,
-              iris: _irisAnim.value,
-              flicker: widget.threatLevel == ThreatLevel.critical ? _flickerAnim.value : 1.0,
-              primaryColor: widget.threatLevel.primaryColor,
-              glowColor: widget.threatLevel.glowColor,
-              hudState: widget.hudState,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: widget.size,
+              height: widget.size,
+              child: CustomPaint(
+                painter: _ArgusRingPainter(
+                  pulse: _pulseAnim.value,
+                  rotate: _rotateAnim.value,
+                  iris: _irisAnim.value,
+                  flicker: widget.threatLevel == ThreatLevel.critical ? _flickerAnim.value : 1.0,
+                  primaryColor: widget.threatLevel.primaryColor,
+                  glowColor: widget.threatLevel.glowColor,
+                  hudState: widget.hudState,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(height: 12.0),
+            Text(
+              widget.hudState.label,
+              style: ArgusFonts.display(
+                color: widget.threatLevel.primaryColor.withValues(alpha: 0.85),
+                fontSize: 12.0,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2.0,
+              ),
+            ),
+          ],
         );
       },
     );
@@ -208,7 +223,6 @@ class _ArgusRingPainter extends CustomPainter {
     _drawCircle(canvas, center, maxR * 0.63, 1.5, primaryColor.withValues(alpha: 0.75 * pulse));
     _drawIrisBlades(canvas, center, maxR * 0.57);
     _drawCore(canvas, center, maxR * (0.26 - iris * 0.10));
-    _drawStateLabel(canvas, center);
   }
 
   void _drawGlowHalo(Canvas canvas, Offset c, double r) {
@@ -269,7 +283,7 @@ class _ArgusRingPainter extends CustomPainter {
 
   void _drawIrisBlades(Canvas canvas, Offset c, double r) {
     const blades = 8;
-    final closedA = math.pi / blades;
+    const closedA = math.pi / blades;
     final openA = closedA * (1 - iris * 0.65);
     final innerR = r * (0.42 + iris * 0.22);
 
@@ -316,24 +330,6 @@ class _ArgusRingPainter extends CustomPainter {
       Rect.fromCenter(center: c, width: 4.0, height: 4.0),
       Paint()..color = primaryColor..style = PaintingStyle.fill,
     );
-  }
-
-  void _drawStateLabel(Canvas canvas, Offset c) {
-    final label = hudState.label;
-    final tp = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: TextStyle(
-          color: primaryColor.withValues(alpha: 0.85),
-          fontSize: 7.5,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.4,
-        ),
-      ),
-      textAlign: TextAlign.center,
-      textDirection: ui.TextDirection.ltr,
-    )..layout(maxWidth: 90);
-    tp.paint(canvas, Offset(c.dx - tp.width / 2, c.dy + 20));
   }
 
   @override

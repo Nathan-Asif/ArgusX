@@ -68,3 +68,41 @@ class ArgusXNavigationRoutes:
                 "route_visualization": route_visualization,
                 "destination": route_visualization.get("destination"),
             }
+
+        @self.router.get("/map_image")
+        async def get_map_image(
+            lat: float,
+            lng: float,
+            dest_lat: float,
+            dest_lng: float,
+            polyline: str,
+        ):
+            if not self._maps_client.is_configured:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Google Maps API key not configured.",
+                )
+
+            url = self._maps_client.build_static_map_url(
+                {"lat": lat, "lng": lng, "label": "Rider"},
+                {"lat": dest_lat, "lng": dest_lng, "label": "Destination"},
+                polyline,
+            )
+            if not url:
+                raise HTTPException(status_code=400, detail="Could not build map URL")
+
+            # Proxy the image bytes through our own (CORS-enabled) origin instead of
+            # redirecting — Google Static Maps responses lack CORS headers, which
+            # breaks image loading on Flutter Web (CanvasKit).
+            fetched = await self._maps_client.fetch_static_map(url)
+            if fetched is None:
+                raise HTTPException(status_code=502, detail="Static map fetch failed")
+
+            content, content_type = fetched
+            from fastapi.responses import Response
+
+            return Response(
+                content=content,
+                media_type=content_type,
+                headers={"Cache-Control": "public, max-age=600"},
+            )

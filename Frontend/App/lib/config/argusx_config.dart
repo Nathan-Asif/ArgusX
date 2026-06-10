@@ -17,12 +17,12 @@ class ArgusXConfig {
 
   static const supabaseUrl = String.fromEnvironment(
     'ARGUSX_SUPABASE_URL',
-    defaultValue: '',
+    defaultValue: 'https://gghskxggmncepmecssvv.supabase.co',
   );
 
   static const supabaseAnonKey = String.fromEnvironment(
     'ARGUSX_SUPABASE_ANON_KEY',
-    defaultValue: '',
+    defaultValue: 'sb_publishable_nQKdPcZOsgHwtfKWaSpCrg_ujLnrEOk',
   );
 
   static bool get isSupabaseConfigured =>

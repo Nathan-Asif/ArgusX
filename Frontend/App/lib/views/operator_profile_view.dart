@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/tech_panel.dart';
+import '../services/auth_service.dart';
+import '../screens/login_screen.dart';
+import '../config/argus_theme.dart';
 
 class OperatorProfileView extends StatefulWidget {
   const OperatorProfileView({super.key});
@@ -16,7 +20,6 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
   bool _audioAlerts = true;
   bool _sentryVisionPassive = true;
   double _hudSensitivity = 75.0;
-  String _accentTheme = 'VIOLET';
 
   @override
   bool get wantKeepAlive => true;
@@ -24,8 +27,8 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    const activeColor = Color(0xFFDDB7FF);   // primary per design.md
-    const glowColor = Color(0xFF8E2DE2);     // primary-container
+    final activeColor = Theme.of(context).colorScheme.primary;
+    final glowColor = Theme.of(context).colorScheme.secondary;
     const dimColor = Color(0xFF998CA0);      // outline
     const surfaceColor = Color(0xFF0E0E0F);  // surface-container-lowest
 
@@ -38,7 +41,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
           // ── Header ────────────────────────────────────────────────
           Text(
             'OPERATOR\nPROFILE',
-            style: GoogleFonts.spaceGrotesk(
+            style: ArgusFonts.display(
               color: const Color(0xFFE5E2E3),
               fontSize: 28.0,
               fontWeight: FontWeight.w800,
@@ -49,7 +52,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
           const SizedBox(height: 6.0),
           Text(
             'Configure identity, HUD preferences, and review personal safety telemetry.',
-            style: GoogleFonts.inter(
+            style: ArgusFonts.body(
               color: dimColor,
               fontSize: 11.0,
               height: 1.5,
@@ -81,7 +84,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                     const SizedBox(width: 8.0),
                     Text(
                       'SESSION: NEO_SECURE',
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: const Color(0xFF00E5FF),
                         fontSize: 10.0,
                         fontWeight: FontWeight.bold,
@@ -107,14 +110,14 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                   children: [
                     Text(
                       'RIDER.SAFETY INDEX',
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: activeColor,
                         fontSize: 12.0,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
                       ),
                     ),
-                    const Icon(Icons.shield_outlined, color: Color(0xFF998CA0), size: 16.0),
+                    Icon(Icons.shield_outlined, color: activeColor, size: 16.0),
                   ],
                 ),
                 const SizedBox(height: 12.0),
@@ -136,7 +139,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                         children: [
                           Text(
                             '96',
-                            style: GoogleFonts.spaceGrotesk(
+                            style: ArgusFonts.display(
                               color: const Color(0xFFE5E2E3),
                               fontSize: 28.0,
                               fontWeight: FontWeight.w900,
@@ -145,7 +148,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                           ),
                           Text(
                             'SCORE',
-                            style: GoogleFonts.inter(
+                            style: ArgusFonts.body(
                               color: dimColor,
                               fontSize: 9.0,
                               fontWeight: FontWeight.w700,
@@ -162,7 +165,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                         children: [
                           Text(
                             'TIER 1 // MASTER OPERATOR',
-                            style: GoogleFonts.spaceGrotesk(
+                            style: ArgusFonts.display(
                               color: const Color(0xFFE5E2E3),
                               fontSize: 12.0,
                               fontWeight: FontWeight.bold,
@@ -172,7 +175,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                           const SizedBox(height: 4.0),
                           Text(
                             'Top 5% of global operators. Avg hazard response: 165ms.',
-                            style: GoogleFonts.inter(
+                            style: ArgusFonts.body(
                               color: dimColor,
                               fontSize: 11.0,
                               height: 1.4,
@@ -189,11 +192,11 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _StatCell(label: 'MILES LOGGED', value: '1,248'),
+                    const _StatCell(label: 'MILES LOGGED', value: '1,248'),
                     Container(height: 28.0, width: 1.0, color: const Color(0xFF353436)),
-                    _StatCell(label: 'INTERVENTIONS', value: '18'),
+                    const _StatCell(label: 'INTERVENTIONS', value: '18'),
                     Container(height: 28.0, width: 1.0, color: const Color(0xFF353436)),
-                    _StatCell(label: 'AVG SPEED', value: '64 km/h'),
+                    const _StatCell(label: 'AVG SPEED', value: '64 km/h'),
                   ],
                 ),
               ],
@@ -213,14 +216,14 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                   children: [
                     Text(
                       'OPERATOR.ID PROFILE',
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: activeColor,
                         fontSize: 12.0,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
                       ),
                     ),
-                    const Icon(Icons.person_outlined, color: Color(0xFF998CA0), size: 16.0),
+                    Icon(Icons.person_outlined, color: activeColor, size: 16.0),
                   ],
                 ),
                 const SizedBox(height: 12.0),
@@ -230,7 +233,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                 // Rider handle input — design.md §Input Fields: label above, violet active glow
                 Text(
                   'RIDER_HANDLE',
-                  style: GoogleFonts.inter(
+                  style: ArgusFonts.body(
                     color: dimColor,
                     fontSize: 10.0,
                     fontWeight: FontWeight.w700,
@@ -246,7 +249,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                   child: TextField(
                     controller: TextEditingController(text: _riderHandle),
                     onChanged: (v) => setState(() => _riderHandle = v),
-                    style: GoogleFonts.spaceGrotesk(
+                    style: ArgusFonts.display(
                       color: const Color(0xFFE5E2E3),
                       fontSize: 12.0,
                       fontWeight: FontWeight.bold,
@@ -259,7 +262,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                         borderRadius: BorderRadius.zero,
                       ),
                       hintText: 'ENTER OPERATOR DESIGNATION...',
-                      hintStyle: GoogleFonts.spaceGrotesk(color: const Color(0xFF4D4354), fontSize: 12.0),
+                      hintStyle: ArgusFonts.display(color: const Color(0xFF4D4354), fontSize: 12.0),
                     ),
                   ),
                 ),
@@ -268,7 +271,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                 // Helmet selector
                 Text(
                   'CALIBRATED_HELMET',
-                  style: GoogleFonts.inter(
+                  style: ArgusFonts.body(
                     color: dimColor,
                     fontSize: 10.0,
                     fontWeight: FontWeight.w700,
@@ -288,7 +291,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                       dropdownColor: const Color(0xFF131314),
                       isExpanded: true,
                       icon: const Icon(Icons.arrow_drop_down, color: Color(0xFFDDB7FF)),
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: const Color(0xFFE5E2E3),
                         fontSize: 12.0,
                         fontWeight: FontWeight.bold,
@@ -324,14 +327,14 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                   children: [
                     Text(
                       'HUD.DEVICE CALIBRATION',
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: activeColor,
                         fontSize: 12.0,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
                       ),
                     ),
-                    const Icon(Icons.tune_outlined, color: Color(0xFF998CA0), size: 16.0),
+                    Icon(Icons.tune_outlined, color: activeColor, size: 16.0),
                   ],
                 ),
                 const SizedBox(height: 12.0),
@@ -344,7 +347,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                   children: [
                     Text(
                       'HAZARD_TRIGGER_SENSITIVITY',
-                      style: GoogleFonts.inter(
+                      style: ArgusFonts.body(
                         color: dimColor,
                         fontSize: 10.0,
                         fontWeight: FontWeight.w700,
@@ -353,7 +356,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                     ),
                     Text(
                       '${_hudSensitivity.toInt()}%',
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: activeColor,
                         fontSize: 12.0,
                         fontWeight: FontWeight.bold,
@@ -406,7 +409,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                 // Accent theme selector — design.md §Buttons ghost style
                 Text(
                   'ARGUS_RING_ACCENT_STYLE',
-                  style: GoogleFonts.inter(
+                  style: ArgusFonts.body(
                     color: dimColor,
                     fontSize: 10.0,
                     fontWeight: FontWeight.w700,
@@ -416,11 +419,11 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                 const SizedBox(height: 8.0),
                 Row(
                   children: ['VIOLET', 'CYAN', 'MONO'].map((theme) {
-                    final selected = _accentTheme == theme;
+                    final selected = ArgusTheme.accentTheme == theme;
                     return Padding(
                       padding: const EdgeInsets.only(right: 8.0),
                       child: GestureDetector(
-                        onTap: () => setState(() => _accentTheme = theme),
+                        onTap: () => setState(() => ArgusTheme.accentTheme = theme),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
                           decoration: BoxDecoration(
@@ -432,7 +435,7 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
                           ),
                           child: Text(
                             theme,
-                            style: GoogleFonts.spaceGrotesk(
+                            style: ArgusFonts.display(
                               color: selected ? activeColor : dimColor,
                               fontSize: 11.0,
                               fontWeight: FontWeight.bold,
@@ -451,11 +454,43 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
 
           // ── Save action — design.md §Buttons primary style ────────
           ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: () async {
+              try {
+                if (const String.fromEnvironment('ARGUSX_SUPABASE_URL').isNotEmpty) {
+                  final client = Supabase.instance.client;
+                  final user = client.auth.currentUser;
+                  if (user != null) {
+                    await client.from('profiles').update({
+                      'full_name': _riderHandle,
+                      // We can store HUD preferences in a jsonb column 'preferences' if it exists,
+                      // or just update full_name for now.
+                      // 'preferences': {
+                      //   'helmet': _selectedHelmet,
+                      //   'audioAlerts': _audioAlerts,
+                      //   'sentryPassive': _sentryVisionPassive,
+                      //   'sensitivity': _hudSensitivity,
+                      //   'theme': _accentTheme,
+                      // }
+                    }).eq('id', user.id);
+                    
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('HUD PROFILE SYNCED', style: ArgusFonts.display(color: Colors.white, fontSize: 10)),
+                          backgroundColor: glowColor,
+                        ),
+                      );
+                    }
+                  }
+                }
+              } catch (e) {
+                debugPrint('Profile sync error: $e');
+              }
+            },
             icon: const Icon(Icons.save_outlined, color: Colors.white, size: 16.0),
             label: Text(
               'SAVE & SYNERGIZE HUD',
-              style: GoogleFonts.spaceGrotesk(
+              style: ArgusFonts.display(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 2.0,
@@ -472,11 +507,26 @@ class _OperatorProfileViewState extends State<OperatorProfileView> with Automati
           ),
           const SizedBox(height: 8.0),
           OutlinedButton.icon(
-            onPressed: () {},
+            onPressed: () async {
+              try {
+                final auth = ArgusXAuthService();
+                await auth.signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (_) => LoginScreen(authService: auth),
+                    ),
+                    (route) => false,
+                  );
+                }
+              } catch (e) {
+                // ignore
+              }
+            },
             icon: Icon(Icons.logout, color: const Color(0xFFFF5252).withValues(alpha: 0.8), size: 16.0),
             label: Text(
               'TERMINATE SESSION',
-              style: GoogleFonts.spaceGrotesk(
+              style: ArgusFonts.display(
                 color: const Color(0xFFFF5252),
                 fontWeight: FontWeight.bold,
                 letterSpacing: 2.0,
@@ -508,7 +558,7 @@ class _StatCell extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: ArgusFonts.body(
             color: const Color(0xFF4D4354),
             fontSize: 9.0,
             fontWeight: FontWeight.w700,
@@ -518,7 +568,7 @@ class _StatCell extends StatelessWidget {
         const SizedBox(height: 4.0),
         Text(
           value,
-          style: GoogleFonts.spaceGrotesk(
+          style: ArgusFonts.display(
             color: const Color(0xFFE5E2E3),
             fontSize: 16.0,
             fontWeight: FontWeight.bold,
@@ -557,7 +607,7 @@ class _ToggleRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: GoogleFonts.inter(
+                style: ArgusFonts.body(
                   color: const Color(0xFFE5E2E3),
                   fontSize: 11.0,
                   fontWeight: FontWeight.w700,
@@ -567,7 +617,7 @@ class _ToggleRow extends StatelessWidget {
               const SizedBox(height: 2.0),
               Text(
                 subLabel,
-                style: GoogleFonts.inter(
+                style: ArgusFonts.body(
                   color: const Color(0xFF998CA0),
                   fontSize: 10.0,
                   height: 1.4,

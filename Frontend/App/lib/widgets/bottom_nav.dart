@@ -24,9 +24,9 @@ class _BottomNavState extends State<BottomNav> {
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFFDDB7FF);
+    final activeColor = Theme.of(context).colorScheme.primary;
     const inactiveColor = Color(0xFF4D4354);
-    const glowColor = Color(0xFF8E2DE2);
+    final glowColor = Theme.of(context).colorScheme.secondary;
 
     return Container(
       height: 72.0,

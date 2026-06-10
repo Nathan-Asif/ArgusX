@@ -31,17 +31,17 @@ export default function AdminDashboard() {
               System Monitoring
             </p>
           </div>
-          <div className="glass-panel border border-white/5 px-4 py-2 rounded-lg text-xs flex items-center gap-2 text-slate-300 font-mono">
-            <span className="w-2 h-2 rounded-full bg-accent-green animate-pulse" />
+          <div className="glass-panel tech-panel border border-white/5 px-4 py-2 rounded-none text-xs flex items-center gap-2 text-slate-300 font-mono">
+            <span className="w-2 h-2 rounded-none bg-accent-green animate-pulse" />
             ALL SYSTEMS NOMINAL
           </div>
         </header>
 
         {/* Top Summary Cards */}
         <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="glass-panel p-6 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-6 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-xs font-mono uppercase tracking-wider">
+              <span className="text-xs font-title uppercase tracking-wider">
                 Active Operators
               </span>
               <Users className="w-4 h-4 text-accent-purple" />
@@ -50,14 +50,14 @@ export default function AdminDashboard() {
               3
             </div>
             <div className="text-[10px] text-accent-green mt-1.5 font-bold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-none bg-accent-green animate-pulse" />
               LIVE CONNECTIONS
             </div>
           </div>
 
-          <div className="glass-panel p-6 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-6 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-xs font-mono uppercase tracking-wider">
+              <span className="text-xs font-title uppercase tracking-wider">
                 Registered Riders
               </span>
               <ShieldCheck className="w-4 h-4 text-accent-cyan" />
@@ -70,9 +70,9 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="glass-panel p-6 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-6 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-xs font-mono uppercase tracking-wider">
+              <span className="text-xs font-title uppercase tracking-wider">
                 Threats Today
               </span>
               <AlertTriangle className="w-4 h-4 text-accent-yellow" />
@@ -85,9 +85,9 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          <div className="glass-panel p-6 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-6 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-xs font-mono uppercase tracking-wider">
+              <span className="text-xs font-title uppercase tracking-wider">
                 System Uptime
               </span>
               <Activity className="w-4 h-4 text-accent-green" />
@@ -105,10 +105,10 @@ export default function AdminDashboard() {
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Link
             href="/admin/fleet-tracking"
-            className="glass-panel p-6 rounded-2xl border border-white/5 hover:border-accent-purple/30 transition-all duration-300 group flex flex-col gap-4"
+            className="glass-panel tech-panel p-6 rounded-none border border-white/5 hover:border-accent-purple/30 transition-all duration-300 group flex flex-col gap-4"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-accent-purple/10 flex items-center justify-center group-hover:bg-accent-purple/20 transition-colors">
+              <div className="w-10 h-10 rounded-none bg-accent-purple/10 flex items-center justify-center group-hover:bg-accent-purple/20 transition-colors">
                 <Map className="w-5 h-5 text-accent-purple" />
               </div>
               <div>
@@ -128,10 +128,10 @@ export default function AdminDashboard() {
 
           <Link
             href="/admin/analytics"
-            className="glass-panel p-6 rounded-2xl border border-white/5 hover:border-accent-cyan/30 transition-all duration-300 group flex flex-col gap-4"
+            className="glass-panel tech-panel p-6 rounded-none border border-white/5 hover:border-accent-cyan/30 transition-all duration-300 group flex flex-col gap-4"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-accent-cyan/10 flex items-center justify-center group-hover:bg-accent-cyan/20 transition-colors">
+              <div className="w-10 h-10 rounded-none bg-accent-cyan/10 flex items-center justify-center group-hover:bg-accent-cyan/20 transition-colors">
                 <LineChart className="w-5 h-5 text-accent-cyan" />
               </div>
               <div>
@@ -151,10 +151,10 @@ export default function AdminDashboard() {
 
           <Link
             href="/admin/users"
-            className="glass-panel p-6 rounded-2xl border border-white/5 hover:border-accent-pink/30 transition-all duration-300 group flex flex-col gap-4"
+            className="glass-panel tech-panel p-6 rounded-none border border-white/5 hover:border-accent-pink/30 transition-all duration-300 group flex flex-col gap-4"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-accent-pink/10 flex items-center justify-center group-hover:bg-accent-pink/20 transition-colors">
+              <div className="w-10 h-10 rounded-none bg-accent-pink/10 flex items-center justify-center group-hover:bg-accent-pink/20 transition-colors">
                 <Users className="w-5 h-5 text-accent-pink" />
               </div>
               <div>
@@ -174,7 +174,7 @@ export default function AdminDashboard() {
         </section>
 
         {/* Live System Status Panel */}
-        <section className="glass-panel p-6 rounded-2xl border border-white/5">
+        <section className="glass-panel tech-panel p-6 rounded-none border border-white/5">
           <h3 className="font-title font-bold text-slate-200 mb-4 flex items-center gap-2">
             <Zap className="w-4 h-4 text-accent-purple" />
             System Integration Status
@@ -208,14 +208,14 @@ export default function AdminDashboard() {
             ].map((svc) => (
               <div
                 key={svc.name}
-                className="bg-white/[0.01] border border-white/5 rounded-xl p-4 flex items-center justify-between"
+                className="bg-white/[0.01] border border-white/5 rounded-none p-4 flex items-center justify-between"
               >
                 <span className="text-xs text-slate-400">{svc.name}</span>
                 <span
                   className={`flex items-center gap-1.5 text-[10px] font-bold ${svc.color}`}
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full ${svc.dotColor} animate-pulse`}
+                    className={`w-1.5 h-1.5 rounded-none ${svc.dotColor} animate-pulse`}
                   />
                   {svc.status}
                 </span>

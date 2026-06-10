@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 
 class CircularGauge extends StatefulWidget {
   final double value;
@@ -45,7 +45,7 @@ class _CircularGaugeState extends State<CircularGauge> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    const glowColor = Color(0xFF8E2DE2);
+    final glowColor = Theme.of(context).colorScheme.secondary;
 
     return AnimatedBuilder(
       animation: _animation,
@@ -75,7 +75,7 @@ class _CircularGaugeState extends State<CircularGauge> with SingleTickerProvider
                     children: [
                       Text(
                         widget.label.toUpperCase(),
-                        style: GoogleFonts.spaceGrotesk(
+                        style: ArgusFonts.display(
                           color: const Color(0xFF998CA0),
                           fontSize: 11.0,
                           fontWeight: FontWeight.bold,
@@ -85,7 +85,7 @@ class _CircularGaugeState extends State<CircularGauge> with SingleTickerProvider
                       const SizedBox(height: 4.0),
                       Text(
                         _animation.value.toStringAsFixed(1),
-                        style: GoogleFonts.spaceGrotesk(
+                        style: ArgusFonts.display(
                           color: const Color(0xFFE5E2E3),
                           fontSize: 42.0,
                           fontWeight: FontWeight.w800,
@@ -100,7 +100,7 @@ class _CircularGaugeState extends State<CircularGauge> with SingleTickerProvider
                       ),
                       Text(
                         widget.unit,
-                        style: GoogleFonts.spaceGrotesk(
+                        style: ArgusFonts.display(
                           color: const Color(0xFF998CA0),
                           fontSize: 13.0,
                           fontWeight: FontWeight.w600,

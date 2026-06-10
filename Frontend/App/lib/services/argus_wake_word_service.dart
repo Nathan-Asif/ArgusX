@@ -27,10 +27,13 @@ class ArgusWakeWordService {
   bool _speechReady = false;
   bool _gesturePrimed = false;
   bool _awaitingCommand = false;
+  bool _starting = false;
   Timer? _commandTimeout;
   Timer? _pauseSafetyTimer;
   Timer? _transcriptDebounce;
+  Timer? _watchdog;
   String _lastHandledText = '';
+  String _lastDebouncedText = '';
 
   ArgusWakeWordState state = ArgusWakeWordState.idle;
   String statusMessage = 'Say "Argus" then your destination';
@@ -84,8 +87,22 @@ class ArgusWakeWordService {
     _commandTimeout?.cancel();
     _pauseSafetyTimer?.cancel();
     _transcriptDebounce?.cancel();
+    _watchdog?.cancel();
     await _speech.stop();
     await _tts.stop();
+  }
+
+  /// Periodically re-arms the recognizer. Chrome's Web Speech API frequently
+  /// ends sessions on its own (and event callbacks can be dropped), so we poll
+  /// to guarantee the mic is listening whenever it should be.
+  void _startWatchdog() {
+    _watchdog?.cancel();
+    _watchdog = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!_active || _paused) return;
+      if (!_speech.isListening) {
+        _startListenSession();
+      }
+    });
   }
 
   void bind({
@@ -106,6 +123,7 @@ class ArgusWakeWordService {
     _lastHandledText = '';
     _setState(ArgusWakeWordState.listening, 'Listening for "Argus"...');
     await _startListenSession();
+    _startWatchdog();
   }
 
   /// Re-activate mic after a HUD tap (web browsers stop mic without gesture).
@@ -134,6 +152,7 @@ class ArgusWakeWordService {
       if (!_speech.isListening) {
         await _startListenSession();
       }
+      _startWatchdog();
       return;
     }
 
@@ -151,6 +170,7 @@ class ArgusWakeWordService {
 
     _setState(ArgusWakeWordState.listening, 'Listening for "Argus"...');
     await _startListenSession();
+    _startWatchdog();
   }
 
   void pause() {
@@ -173,8 +193,12 @@ class ArgusWakeWordService {
     if (!_active) return;
     _paused = false;
     _pauseSafetyTimer?.cancel();
+    // Allow the same phrase to be spoken again after a route change.
+    _lastHandledText = '';
+    _lastDebouncedText = '';
     _setState(ArgusWakeWordState.listening, 'Listening for "Argus"...');
     await _startListenSession();
+    _startWatchdog();
   }
 
   Future<void> speak(String text) async {
@@ -202,19 +226,27 @@ class ArgusWakeWordService {
   }
 
   Future<void> _startListenSession() async {
-    if (!_active || _paused || _speech.isListening) return;
+    if (!_active || _paused || _starting || _speech.isListening) return;
 
-    final started = await _speech.listen(
-      onResult: _handleTranscript,
-      listenOptions: stt.SpeechListenOptions(
-        listenFor: _listenDuration,
-        pauseFor: _pauseDuration,
-        partialResults: true,
-        localeId: _speechLocale,
-        cancelOnError: false,
-        listenMode: stt.ListenMode.dictation,
-      ),
-    );
+    _starting = true;
+    var started = false;
+    try {
+      started = await _speech.listen(
+        onResult: _handleTranscript,
+        listenOptions: stt.SpeechListenOptions(
+          listenFor: _listenDuration,
+          pauseFor: _pauseDuration,
+          partialResults: true,
+          localeId: _speechLocale,
+          cancelOnError: false,
+          listenMode: stt.ListenMode.dictation,
+        ),
+      );
+    } catch (_) {
+      started = false;
+    } finally {
+      _starting = false;
+    }
 
     if (!started && _active && !_paused) {
       _setState(
@@ -223,7 +255,6 @@ class ArgusWakeWordService {
             ? 'Mic blocked — tap the HUD and allow microphone in the browser.'
             : 'Microphone unavailable — check app permissions.',
       );
-      _scheduleListenRestart(delay: const Duration(seconds: 3));
     } else if (_active && !_paused && state == ArgusWakeWordState.micError) {
       _setState(ArgusWakeWordState.listening, 'Listening for "Argus"...');
     }
@@ -251,10 +282,16 @@ class ArgusWakeWordService {
     _notify();
 
     if (kIsWeb) {
-      _transcriptDebounce?.cancel();
-      _transcriptDebounce = Timer(_webDebounce, () {
-        _processTranscript(text);
-      });
+      // Chrome streams partial results and re-emits the SAME transcript many
+      // times. Only (re)start the settle timer when the text actually changes,
+      // otherwise the timer would be cancelled forever and never fire.
+      if (text != _lastDebouncedText) {
+        _lastDebouncedText = text;
+        _transcriptDebounce?.cancel();
+        _transcriptDebounce = Timer(_webDebounce, () {
+          _processTranscript(text);
+        });
+      }
       return;
     }
 
@@ -266,8 +303,10 @@ class ArgusWakeWordService {
     if (!_active || _paused) return;
     if (text == _lastHandledText) return;
 
+    // After "Argus", accept either an explicit command or a loose place.
     if (_awaitingCommand) {
-      final place = ArgusVoiceCommands.extractPlace(text, requireWakeWord: false);
+      final place = ArgusVoiceCommands.extractCommand(text) ??
+          ArgusVoiceCommands.extractPlace(text, requireWakeWord: false);
       if (place != null) {
         _lastHandledText = text;
         _commandTimeout?.cancel();
@@ -277,19 +316,28 @@ class ArgusWakeWordService {
       return;
     }
 
-    if (!ArgusVoiceCommands.containsWakeWord(text)) return;
-
-    final place = ArgusVoiceCommands.extractPlace(text);
-    if (place != null) {
-      _lastHandledText = text;
-      _deliverDestination(place);
+    // Wake-word path: "Argus navigate to ..." or just "Argus".
+    if (ArgusVoiceCommands.containsWakeWord(text)) {
+      final place = ArgusVoiceCommands.extractPlace(text);
+      if (place != null) {
+        _lastHandledText = text;
+        _deliverDestination(place);
+        return;
+      }
+      if (ArgusVoiceCommands.isWakeWordOnly(text)) {
+        _lastHandledText = text;
+        _beginAwaitingCommand();
+        speak('Yes?');
+      }
       return;
     }
 
-    if (ArgusVoiceCommands.isWakeWordOnly(text)) {
+    // No wake word: still honor explicit destination commands like
+    // "set my destination to Nazimabad, Karachi" (testing convenience).
+    final direct = ArgusVoiceCommands.extractCommand(text);
+    if (direct != null) {
       _lastHandledText = text;
-      _beginAwaitingCommand();
-      speak('Yes?');
+      _deliverDestination(direct);
     }
   }
 

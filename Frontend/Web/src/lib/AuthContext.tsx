@@ -36,10 +36,19 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
    Mock credentials (used when Supabase is not configured)
    ────────────────────────────────────────────────────────── */
 const MOCK_USERS: Record<string, { password: string; user: ArgusUser }> = {
+  "nathanasif@gmail.com": {
+    password: "admin123",
+    user: {
+      id: "mock-admin-001",
+      email: "nathanasif@gmail.com",
+      name: "Nathan Asif",
+      role: "admin",
+    },
+  },
   "admin@argusx.io": {
     password: "argusx2026",
     user: {
-      id: "mock-admin-001",
+      id: "mock-admin-dev",
       email: "admin@argusx.io",
       name: "System Admin",
       role: "admin",

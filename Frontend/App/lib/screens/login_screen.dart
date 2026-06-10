@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 import '../services/auth_service.dart';
 import '../widgets/grid_background.dart';
 import '../widgets/tech_panel.dart';
@@ -20,14 +20,20 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isRegister = false;
+  bool _isForgotPassword = false;
   bool _busy = false;
   String? _error;
 
   Future<void> _submit() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
-    if (email.isEmpty || password.isEmpty) {
-      setState(() => _error = 'Email and password required.');
+    
+    if (email.isEmpty) {
+      setState(() => _error = 'Email is required.');
+      return;
+    }
+    if (!_isForgotPassword && password.isEmpty) {
+      setState(() => _error = 'Password is required.');
       return;
     }
     setState(() {
@@ -45,7 +51,14 @@ class _LoginScreenState extends State<LoginScreen> {
         }
         return;
       }
-      if (_isRegister) {
+      if (_isForgotPassword) {
+        await widget.authService.resetPassword(email: email);
+        setState(() {
+          _error = 'Password reset email sent. Check your inbox.';
+          _isForgotPassword = false;
+        });
+        return; // Don't navigate to dashboard
+      } else if (_isRegister) {
         await widget.authService.signUp(email: email, password: password);
       } else {
         await widget.authService.signIn(email: email, password: password);
@@ -116,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     // 2. Titles Section
                     Text(
                       'ARGUSX',
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: const Color(0xFFE5E2E3),
                         fontSize: 44.0,
                         fontWeight: FontWeight.w800,
@@ -133,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 4.0),
                     Text(
                       'SECURE GATEWAY v.4.0',
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: const Color(0xFF998CA0),
                         fontSize: 13.0,
                         fontWeight: FontWeight.w600,
@@ -160,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Expanded(
                                 child: Text(
                                   'AUTHENTICATION PROTOCOL',
-                                  style: GoogleFonts.spaceGrotesk(
+                                  style: ArgusFonts.display(
                                     color: const Color(0xFFDDB7FF),
                                     fontSize: 13.0,
                                     fontWeight: FontWeight.bold,
@@ -196,36 +209,60 @@ class _LoginScreenState extends State<LoginScreen> {
                             prefixIcon: Icons.badge_outlined,
                             controller: _emailController,
                           ),
-                          const SizedBox(height: 20.0),
-                          TechInput(
-                            label: 'PASSWORD',
-                            hintText: '••••••••••••••••',
-                            prefixIcon: Icons.key_outlined,
-                            isPassword: true,
-                            controller: _passwordController,
-                          ),
+                          if (!_isForgotPassword) ...[
+                            const SizedBox(height: 20.0),
+                            TechInput(
+                              label: 'PASSWORD',
+                              hintText: '••••••••••••••••',
+                              prefixIcon: Icons.key_outlined,
+                              isPassword: true,
+                              controller: _passwordController,
+                            ),
+                          ],
                           if (_error != null) ...[
                             const SizedBox(height: 12),
                             Text(
                               _error!,
-                              style: GoogleFonts.inter(color: const Color(0xFFFF5252), fontSize: 11),
+                              style: ArgusFonts.body(color: const Color(0xFFFF5252), fontSize: 11),
                             ),
                           ],
                           const SizedBox(height: 32.0),
                           TechButton(
                             label: _busy
                                 ? 'SYNCING...'
-                                : (_isRegister ? 'CREATE ACCOUNT' : 'SIGN IN'),
+                                : (_isForgotPassword
+                                    ? 'SEND RECOVERY LINK'
+                                    : (_isRegister ? 'CREATE ACCOUNT' : 'SIGN IN')),
                             icon: Icons.sync_lock_outlined,
                             onTap: _busy ? () {} : _submit,
                           ),
                           const SizedBox(height: 24.0),
                           Center(
-                            child: _HoverText(
-                              text: _isRegister
-                                  ? 'ALREADY HAVE ACCESS? SIGN IN'
-                                  : 'NEW OPERATOR? CREATE ACCOUNT',
-                              onTap: () => setState(() => _isRegister = !_isRegister),
+                            child: Column(
+                              children: [
+                                _HoverText(
+                                  text: _isForgotPassword
+                                      ? 'RETURN TO LOGIN'
+                                      : (_isRegister
+                                          ? 'ALREADY HAVE ACCESS? SIGN IN'
+                                          : 'NEW OPERATOR? CREATE ACCOUNT'),
+                                  onTap: () => setState(() {
+                                    _isForgotPassword = false;
+                                    _isRegister = !_isRegister;
+                                  }),
+                                ),
+                                if (!_isForgotPassword && !_isRegister) ...[
+                                  const SizedBox(height: 12.0),
+                                  _HoverText(
+                                    text: 'FORGOT PASSWORD?',
+                                    onTap: () => setState(() {
+                                      _isForgotPassword = true;
+                                      _isRegister = false;
+                                      _error = null;
+                                    }),
+                                  ),
+                                ]
+                              ],
                             ),
                           ),
                         ],
@@ -261,7 +298,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(width: 8.0),
                         Text(
                           'SECURE CONNECTION',
-                          style: GoogleFonts.spaceGrotesk(
+                          style: ArgusFonts.display(
                             color: const Color(0xFF4D4354),
                             fontSize: 11.0,
                             fontWeight: FontWeight.bold,
@@ -325,7 +362,7 @@ class _BlinkingStatusState extends State<_BlinkingStatus>
           const SizedBox(width: 6.0),
           Text(
             'AWAITING INPUT',
-            style: GoogleFonts.spaceGrotesk(
+            style: ArgusFonts.display(
               color: const Color(0xFF998CA0),
               fontSize: 10.0,
               fontWeight: FontWeight.w600,
@@ -361,7 +398,7 @@ class _HoverTextState extends State<_HoverText> {
         onTap: widget.onTap,
         child: Text(
           widget.text,
-          style: GoogleFonts.spaceGrotesk(
+          style: ArgusFonts.display(
             color: _isHovered ? const Color(0xFFDDB7FF) : const Color(0xFF4D4354),
             fontSize: 12.0,
             fontWeight: FontWeight.bold,

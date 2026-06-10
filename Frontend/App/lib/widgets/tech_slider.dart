@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 
 class TechSlider extends StatefulWidget {
   final String label;
@@ -30,8 +30,8 @@ class TechSlider extends StatefulWidget {
 class _TechSliderState extends State<TechSlider> {
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFFDDB7FF);
-    const glowColor = Color(0xFF8E2DE2);
+    final activeColor = Theme.of(context).colorScheme.primary;
+    final glowColor = Theme.of(context).colorScheme.secondary;
     final inactiveColor = const Color(0xFF4D4354).withValues(alpha: 0.5);
 
     return Column(
@@ -42,7 +42,7 @@ class _TechSliderState extends State<TechSlider> {
           children: [
             Text(
               widget.label,
-              style: GoogleFonts.spaceGrotesk(
+              style: ArgusFonts.display(
                 color: const Color(0xFFE5E2E3),
                 fontSize: 11.0,
                 fontWeight: FontWeight.bold,
@@ -51,7 +51,7 @@ class _TechSliderState extends State<TechSlider> {
             ),
             Text(
               widget.valueLabel,
-              style: GoogleFonts.spaceGrotesk(
+              style: ArgusFonts.display(
                 color: activeColor,
                 fontSize: 12.0,
                 fontWeight: FontWeight.bold,
@@ -86,7 +86,7 @@ class _TechSliderState extends State<TechSlider> {
               children: widget.tickLabels!.map((label) {
                 return Text(
                   label,
-                  style: GoogleFonts.spaceGrotesk(
+                  style: ArgusFonts.display(
                     color: const Color(0xFF4D4354),
                     fontSize: 9.0,
                     fontWeight: FontWeight.w600,

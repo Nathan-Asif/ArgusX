@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 import '../widgets/grid_background.dart';
 import '../widgets/bottom_nav.dart';
 import '../views/mission_control_view.dart';
@@ -34,8 +34,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeColor = const Color(0xFFDDB7FF);
-    final glowColor = const Color(0xFF8E2DE2);
+    final activeColor = Theme.of(context).colorScheme.primary;
+    final glowColor = Theme.of(context).colorScheme.secondary;
 
     return Scaffold(
       // Custom Cyberpunk Bottom Navigation
@@ -89,7 +89,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     // Title
                     Text(
                       'ARGUSX-SYSTEMS',
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: const Color(0xFFE5E2E3),
                         fontSize: 16.0,
                         fontWeight: FontWeight.w800,
@@ -103,9 +103,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     // Right Slider Icon
-                    Icon(
+                    const Icon(
                       Icons.tune_outlined,
-                      color: const Color(0xFF998CA0),
+                      color: Color(0xFF998CA0),
                       size: 22.0,
                     ),
                   ],

@@ -25,8 +25,8 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-      <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-accent-purple via-black to-accent-pink p-0.5 animate-iris-breathe flex items-center justify-center">
-        <div className="w-full h-full bg-black rounded-full flex items-center justify-center">
+      <div className="w-16 h-16 rounded-none bg-gradient-to-tr from-accent-purple via-black to-accent-pink p-0.5 animate-iris-breathe flex items-center justify-center">
+        <div className="w-full h-full bg-black rounded-none flex items-center justify-center">
           <ShieldAlert className="w-7 h-7 text-accent-purple animate-pulse" />
         </div>
       </div>
