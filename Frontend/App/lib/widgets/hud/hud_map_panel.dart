@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
+import '../../config/argusx_config.dart';
 
 /// Bottom-right route map using Google Static Maps URL from backend.
 class HudMapPanel extends StatelessWidget {
@@ -16,9 +17,18 @@ class HudMapPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final staticUrl = routeVisualization['static_map_url'] as String? ?? '';
-    final remaining = routeVisualization['distance_remaining_m'];
     final dest = routeVisualization['destination'] as Map<String, dynamic>?;
+    final destLat = dest?['lat'] as num?;
+    final destLng = dest?['lng'] as num?;
+    final polyline = routeVisualization['polyline'] as String? ?? '';
+
+    String mapUrl = routeVisualization['static_map_url'] as String? ?? '';
+    if (destLat != null && destLng != null && polyline.isNotEmpty) {
+      final polyEncoded = Uri.encodeComponent(polyline);
+      mapUrl = '${ArgusXConfig.apiUrl}/navigation/map_image?lat=$lat&lng=$lng&dest_lat=$destLat&dest_lng=$destLng&polyline=$polyEncoded';
+    }
+
+    final remaining = routeVisualization['distance_remaining_m'];
 
     return Container(
       width: 220,
@@ -32,9 +42,9 @@ class HudMapPanel extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (staticUrl.isNotEmpty)
+          if (mapUrl.isNotEmpty)
             Image.network(
-              staticUrl,
+              mapUrl,
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => _fallbackMap(),
             )
@@ -45,7 +55,7 @@ class HudMapPanel extends StatelessWidget {
             left: 8,
             child: Text(
               'ROUTE MAP',
-              style: GoogleFonts.spaceGrotesk(
+              style: ArgusFonts.display(
                 color: Colors.white,
                 fontSize: 9,
                 fontWeight: FontWeight.bold,
@@ -59,7 +69,7 @@ class HudMapPanel extends StatelessWidget {
               left: 8,
               child: Text(
                 '${(remaining as num) / 1000} km left',
-                style: GoogleFonts.spaceMono(color: const Color(0xFF93C5FD), fontSize: 9),
+                style: ArgusFonts.telemetry(color: const Color(0xFF93C5FD), fontSize: 9),
               ),
             ),
           Positioned(
@@ -70,7 +80,7 @@ class HudMapPanel extends StatelessWidget {
               dest?['label'] as String? ?? '$lat, $lng',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.spaceMono(color: const Color(0xFF998CA0), fontSize: 7.5),
+              style: ArgusFonts.telemetry(color: const Color(0xFF998CA0), fontSize: 7.5),
             ),
           ),
         ],
@@ -84,7 +94,7 @@ class HudMapPanel extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         'Awaiting route map',
-        style: GoogleFonts.inter(color: const Color(0xFF6B7280), fontSize: 10),
+        style: ArgusFonts.body(color: const Color(0xFF6B7280), fontSize: 10),
       ),
     );
   }

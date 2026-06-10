@@ -257,11 +257,11 @@ export default function UserManagement() {
             </p>
           </div>
           <div className="flex items-center gap-3 text-xs font-mono">
-            <div className="glass-panel border border-white/5 px-4 py-2 rounded-lg flex items-center gap-2 text-slate-300">
-              <span className="w-2 h-2 rounded-full bg-accent-green animate-pulse" />
+            <div className="glass-panel tech-panel border border-white/5 px-4 py-2 rounded-none flex items-center gap-2 text-slate-300">
+              <span className="w-2 h-2 rounded-none bg-accent-green animate-pulse" />
               {activeCount} ACTIVE
             </div>
-            <div className="glass-panel border border-white/5 px-4 py-2 rounded-lg flex items-center gap-2 text-slate-300">
+            <div className="glass-panel tech-panel border border-white/5 px-4 py-2 rounded-none flex items-center gap-2 text-slate-300">
               <Users className="w-3.5 h-3.5 text-accent-purple" />
               {totalCount} TOTAL
             </div>
@@ -270,9 +270,9 @@ export default function UserManagement() {
 
         {/* Top Stats */}
         <section className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="glass-panel p-5 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-5 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-[10px] font-mono uppercase tracking-wider">
+              <span className="text-[10px] font-title uppercase tracking-wider">
                 Active Now
               </span>
               <Activity className="w-4 h-4 text-accent-green" />
@@ -281,9 +281,9 @@ export default function UserManagement() {
               {activeCount}
             </div>
           </div>
-          <div className="glass-panel p-5 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-5 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-[10px] font-mono uppercase tracking-wider">
+              <span className="text-[10px] font-title uppercase tracking-wider">
                 Total Registered
               </span>
               <Users className="w-4 h-4 text-accent-purple" />
@@ -292,9 +292,9 @@ export default function UserManagement() {
               {totalCount}
             </div>
           </div>
-          <div className="glass-panel p-5 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-5 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-[10px] font-mono uppercase tracking-wider">
+              <span className="text-[10px] font-title uppercase tracking-wider">
                 Banned
               </span>
               <UserX className="w-4 h-4 text-accent-red" />
@@ -303,9 +303,9 @@ export default function UserManagement() {
               {bannedCount}
             </div>
           </div>
-          <div className="glass-panel p-5 rounded-2xl border border-white/5">
+          <div className="glass-panel tech-panel p-5 rounded-none border border-white/5">
             <div className="flex justify-between items-start text-slate-400">
-              <span className="text-[10px] font-mono uppercase tracking-wider">
+              <span className="text-[10px] font-title uppercase tracking-wider">
                 Locations
               </span>
               <MapPin className="w-4 h-4 text-accent-cyan" />
@@ -338,7 +338,7 @@ export default function UserManagement() {
                 onChange={(e) =>
                   setStatusFilter(e.target.value as "ALL" | UserStatus)
                 }
-                className="bg-black/60 border border-white/10 rounded-lg py-2 pl-3 pr-8 text-xs text-slate-200 focus:border-accent-purple focus:outline-none appearance-none cursor-pointer"
+                className="bg-black/60 border border-white/10 rounded-none py-2 pl-3 pr-8 text-xs text-slate-200 focus:border-accent-purple focus:outline-none appearance-none cursor-pointer"
               >
                 <option value="ALL" className="bg-slate-900 text-slate-200">
                   ALL STATUS
@@ -368,11 +368,11 @@ export default function UserManagement() {
         </div>
 
         {/* Users Table */}
-        <div className="glass-panel rounded-2xl border border-white/5 overflow-hidden flex-1">
+        <div className="glass-panel tech-panel rounded-none border border-white/5 overflow-hidden flex-1">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-white/10 text-slate-500 font-mono text-[10px] uppercase tracking-wider">
+                <tr className="border-b border-white/10 text-slate-500 font-sans text-[10px] uppercase tracking-wider">
                   <th className="py-3.5 px-5">Operator</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4">Location</th>
@@ -401,7 +401,7 @@ export default function UserManagement() {
                         >
                           {/* Operator */}
                           <div className="py-3.5 px-5 flex items-center gap-3 min-w-[220px]">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent-purple/30 to-accent-pink/20 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                            <div className="w-9 h-9 rounded-none bg-gradient-to-br from-accent-purple/30 to-accent-pink/20 flex items-center justify-center text-white text-xs font-bold shrink-0">
                               {user.name
                                 .split(" ")
                                 .map((n) => n[0])
@@ -422,7 +422,7 @@ export default function UserManagement() {
                           <div className="py-3.5 px-4 min-w-[100px]">
                             <span className="flex items-center gap-1.5">
                               <span
-                                className={`w-2 h-2 rounded-full ${getStatusDot(
+                                className={`w-2 h-2 rounded-none ${getStatusDot(
                                   user.status
                                 )}`}
                               />
@@ -474,7 +474,7 @@ export default function UserManagement() {
                                   isExpanded ? null : user.id
                                 );
                               }}
-                              className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-slate-300 transition-colors"
+                              className="p-1.5 rounded-none hover:bg-white/5 text-slate-500 hover:text-slate-300 transition-colors"
                               title="View details"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -485,7 +485,7 @@ export default function UserManagement() {
                                   e.stopPropagation();
                                   setModal({ type: "unban", user });
                                 }}
-                                className="p-1.5 rounded-lg hover:bg-accent-green/10 text-slate-500 hover:text-accent-green transition-colors"
+                                className="p-1.5 rounded-none hover:bg-accent-green/10 text-slate-500 hover:text-accent-green transition-colors"
                                 title="Unban user"
                               >
                                 <ShieldCheck className="w-3.5 h-3.5" />
@@ -496,7 +496,7 @@ export default function UserManagement() {
                                   e.stopPropagation();
                                   setModal({ type: "ban", user });
                                 }}
-                                className="p-1.5 rounded-lg hover:bg-accent-yellow/10 text-slate-500 hover:text-accent-yellow transition-colors"
+                                className="p-1.5 rounded-none hover:bg-accent-yellow/10 text-slate-500 hover:text-accent-yellow transition-colors"
                                 title="Ban user"
                               >
                                 <ShieldOff className="w-3.5 h-3.5" />
@@ -507,7 +507,7 @@ export default function UserManagement() {
                                 e.stopPropagation();
                                 setModal({ type: "delete", user });
                               }}
-                              className="p-1.5 rounded-lg hover:bg-accent-red/10 text-slate-500 hover:text-accent-red transition-colors"
+                              className="p-1.5 rounded-none hover:bg-accent-red/10 text-slate-500 hover:text-accent-red transition-colors"
                               title="Delete user"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -520,7 +520,7 @@ export default function UserManagement() {
                           <div className="px-5 py-5 bg-white/[0.01] border-b border-accent-purple/10">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                               <div>
-                                <div className="text-[10px] text-slate-500 font-mono uppercase mb-1">
+                                <div className="text-[10px] text-slate-300 font-title uppercase tracking-wider mb-1">
                                   Device ID
                                 </div>
                                 <div className="text-sm font-bold text-accent-purple font-mono">
@@ -528,7 +528,7 @@ export default function UserManagement() {
                                 </div>
                               </div>
                               <div>
-                                <div className="text-[10px] text-slate-500 font-mono uppercase mb-1">
+                                <div className="text-[10px] text-slate-300 font-title uppercase tracking-wider mb-1">
                                   Helmet Model
                                 </div>
                                 <div className="text-sm font-bold text-slate-200">
@@ -536,7 +536,7 @@ export default function UserManagement() {
                                 </div>
                               </div>
                               <div>
-                                <div className="text-[10px] text-slate-500 font-mono uppercase mb-1">
+                                <div className="text-[10px] text-slate-300 font-title uppercase tracking-wider mb-1">
                                   Join Date
                                 </div>
                                 <div className="text-sm font-bold text-slate-200 font-mono">
@@ -544,7 +544,7 @@ export default function UserManagement() {
                                 </div>
                               </div>
                               <div>
-                                <div className="text-[10px] text-slate-500 font-mono uppercase mb-1">
+                                <div className="text-[10px] text-slate-300 font-title uppercase tracking-wider mb-1">
                                   Coordinates
                                 </div>
                                 <div className="text-sm font-bold text-slate-200 font-mono">
@@ -566,9 +566,9 @@ export default function UserManagement() {
                                   {user.safetyScore}%
                                 </span>
                               </div>
-                              <div className="w-full h-2 bg-white/[0.03] rounded-full overflow-hidden border border-white/5">
+                              <div className="w-full h-2 bg-white/[0.03] rounded-none overflow-hidden border border-white/5">
                                 <div
-                                  className="h-full bg-gradient-to-r from-accent-purple to-accent-cyan rounded-full transition-all duration-500"
+                                  className="h-full bg-gradient-to-r from-accent-purple to-accent-cyan rounded-none transition-all duration-500"
                                   style={{
                                     width: `${user.safetyScore}%`,
                                   }}
@@ -609,7 +609,7 @@ export default function UserManagement() {
       {/* ── Confirmation Modal ────────────────────────────── */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="glass-panel-purple p-8 rounded-2xl border border-white/10 max-w-md w-full mx-4 animate-fade-in-up">
+          <div className="glass-panel tech-panel-purple p-8 rounded-none border border-white/10 max-w-md w-full mx-4 animate-fade-in-up">
             {/* Close */}
             <button
               onClick={() => setModal(null)}
@@ -621,7 +621,7 @@ export default function UserManagement() {
             {/* Icon */}
             <div className="flex justify-center mb-4">
               <div
-                className={`w-14 h-14 rounded-full flex items-center justify-center ${
+                className={`w-14 h-14 rounded-none flex items-center justify-center ${
                   modal.type === "delete"
                     ? "bg-accent-red/10 border border-accent-red/20"
                     : modal.type === "ban"
@@ -667,7 +667,7 @@ export default function UserManagement() {
                   else if (modal.type === "ban") handleBan(modal.user.id);
                   else handleUnban(modal.user.id);
                 }}
-                className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                className={`flex-1 py-2.5 rounded-none text-xs font-bold transition-all ${
                   modal.type === "delete"
                     ? "btn-danger"
                     : modal.type === "ban"

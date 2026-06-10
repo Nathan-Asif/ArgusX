@@ -68,3 +68,28 @@ class ArgusXNavigationRoutes:
                 "route_visualization": route_visualization,
                 "destination": route_visualization.get("destination"),
             }
+
+        @self.router.get("/map_image")
+        async def get_map_image(
+            lat: float,
+            lng: float,
+            dest_lat: float,
+            dest_lng: float,
+            polyline: str,
+        ):
+            if not self._maps_client.is_configured:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Google Maps API key not configured.",
+                )
+
+            url = self._maps_client.build_static_map_url(
+                {"lat": lat, "lng": lng, "label": "Rider"},
+                {"lat": dest_lat, "lng": dest_lng, "label": "Destination"},
+                polyline,
+            )
+            if not url:
+                raise HTTPException(status_code=400, detail="Could not build map URL")
+
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url)

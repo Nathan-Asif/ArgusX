@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 
 class AudioEqualizer extends StatefulWidget {
   final double value;
@@ -36,7 +36,7 @@ class _AudioEqualizerState extends State<AudioEqualizer> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFFDDB7FF);
+    final activeColor = Theme.of(context).colorScheme.primary;
     final inactiveColor = const Color(0xFF4D4354).withValues(alpha: 0.5);
 
     return Column(
@@ -44,7 +44,7 @@ class _AudioEqualizerState extends State<AudioEqualizer> with SingleTickerProvid
       children: [
         Text(
           'MASTER_OUTPUT_GAIN',
-          style: GoogleFonts.spaceGrotesk(
+          style: ArgusFonts.display(
             color: const Color(0xFFE5E2E3),
             fontSize: 11.0,
             fontWeight: FontWeight.bold,
@@ -102,7 +102,7 @@ class _AudioEqualizerState extends State<AudioEqualizer> with SingleTickerProvid
             const SizedBox(width: 8.0),
             Text(
               '${widget.value.toInt()}dB',
-              style: GoogleFonts.spaceGrotesk(
+              style: ArgusFonts.display(
                 color: const Color(0xFFE5E2E3),
                 fontSize: 11.0,
                 fontWeight: FontWeight.bold,

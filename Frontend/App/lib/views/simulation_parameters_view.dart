@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 import '../widgets/tech_panel.dart';
 import '../widgets/tech_slider.dart';
 import '../widgets/tech_toggle.dart';
@@ -33,8 +33,8 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    const activeColor = Color(0xFFDDB7FF);
-    const glowColor = Color(0xFF8E2DE2);
+    final activeColor = Theme.of(context).colorScheme.primary;
+    final glowColor = Theme.of(context).colorScheme.secondary;
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -45,7 +45,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
           // Header
           Text(
             'SIMULATION\nPARAMETERS',
-            style: GoogleFonts.spaceGrotesk(
+            style: ArgusFonts.display(
               color: const Color(0xFFE5E2E3),
               fontSize: 28.0,
               fontWeight: FontWeight.w800,
@@ -56,7 +56,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
           const SizedBox(height: 12.0),
           Text(
             'Configure global matrix constraints, environmental hazards, and sensory output fidelity. Changes apply real-time to active simulation nodes.',
-            style: GoogleFonts.spaceGrotesk(
+            style: ArgusFonts.display(
               color: const Color(0xFF998CA0),
               fontSize: 11.0,
               height: 1.4,
@@ -83,7 +83,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('AUTONOMOUS.UI', style: GoogleFonts.spaceGrotesk(
+                    Text('AUTONOMOUS.UI', style: ArgusFonts.display(
                       color: activeColor, fontSize: 12.0,
                       fontWeight: FontWeight.bold, letterSpacing: 1.5)),
                     AnimatedContainer(
@@ -106,7 +106,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                       ),
                       child: Text(
                         _isHighSpeed ? 'UI_PRUNED' : _isMidSpeed ? 'PARTIAL' : 'FULL_UI',
-                        style: GoogleFonts.spaceMono(
+                        style: ArgusFonts.telemetry(
                           color: _isHighSpeed
                               ? const Color(0xFFFF5252)
                               : _isMidSpeed
@@ -120,7 +120,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                 const SizedBox(height: 4.0),
                 Text(
                   'PRD §5.1: Context-aware state machine manages UI clutter at speed.',
-                  style: GoogleFonts.inter(
+                  style: ArgusFonts.body(
                     color: const Color(0xFF4D4354), fontSize: 10.0, height: 1.4)),
                 const SizedBox(height: 14.0),
                 // Speed slider
@@ -129,7 +129,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                     const Icon(Icons.speed, color: Color(0xFF998CA0), size: 14),
                     const SizedBox(width: 8.0),
                     Text('SPEED: ${_currentSpeed.toInt()} km/h',
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: const Color(0xFFE5E2E3), fontSize: 11.0,
                         fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                   ],
@@ -172,7 +172,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                         Expanded(
                           child: Text(
                             'HIGH SPEED — NON-ESSENTIAL WIDGETS PRUNED\nBROADENING CRITICAL TELEMETRY OVERLAYS',
-                            style: GoogleFonts.spaceMono(
+                            style: ArgusFonts.telemetry(
                               color: const Color(0xFFFF5252), fontSize: 8.5,
                               fontWeight: FontWeight.bold, letterSpacing: 0.8, height: 1.5),
                           ),
@@ -217,7 +217,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                 const SizedBox(width: 8.0),
                 Text(
                   'SYS.NOMINAL',
-                  style: GoogleFonts.spaceGrotesk(
+                  style: ArgusFonts.display(
                     color: const Color(0xFF00E5FF),
                     fontSize: 10.0,
                     fontWeight: FontWeight.bold,
@@ -244,7 +244,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                         const SizedBox(width: 8.0),
                         Text(
                           'VISION MATRIX\nCONFIG',
-                          style: GoogleFonts.spaceGrotesk(
+                          style: ArgusFonts.display(
                             color: activeColor,
                             fontSize: 12.0,
                             fontWeight: FontWeight.bold,
@@ -257,8 +257,8 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('NODE_ID:', style: GoogleFonts.spaceGrotesk(color: const Color(0xFF4D4354), fontSize: 8.0)),
-                        Text('VM-77A', style: GoogleFonts.spaceGrotesk(color: const Color(0xFF998CA0), fontSize: 10.0, fontWeight: FontWeight.bold)),
+                        Text('NODE_ID:', style: ArgusFonts.display(color: const Color(0xFF4D4354), fontSize: 8.0)),
+                        Text('VM-77A', style: ArgusFonts.display(color: const Color(0xFF998CA0), fontSize: 10.0, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ],
@@ -352,7 +352,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                     const SizedBox(width: 8.0),
                     Text(
                       'AUDIO SYS',
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: activeColor,
                         fontSize: 12.0,
                         fontWeight: FontWeight.bold,
@@ -410,7 +410,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                     const SizedBox(width: 8.0),
                     Text(
                       'HIERARCHICAL\nSETTING ARRAYS',
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: activeColor,
                         fontSize: 12.0,
                         fontWeight: FontWeight.bold,
@@ -465,7 +465,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                   icon: const Icon(Icons.save, color: Colors.white, size: 16.0),
                   label: Text(
                     'COMMIT_CHANGES',
-                    style: GoogleFonts.spaceGrotesk(
+                    style: ArgusFonts.display(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
@@ -496,7 +496,7 @@ class _SimulationParametersViewState extends State<SimulationParametersView> wit
                   ),
                   child: Text(
                     'REVERT_TO_DEFAULT',
-                    style: GoogleFonts.spaceGrotesk(
+                    style: ArgusFonts.display(
                       color: const Color(0xFFE5E2E3),
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,

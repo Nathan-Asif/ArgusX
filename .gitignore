@@ -20,6 +20,7 @@ Backend/vector_store/*.bin
 
 # --- Node / Next.js (web portals) ---
 node_modules/
+.agent
 .next/
 out/
 
@@ -49,3 +50,7 @@ Thumbs.db
 #nem
 nemdocs/
 .specify
+
+# --- AI Agent Skills (local-only, never commit) ---
+.agents/
+skills-lock.json

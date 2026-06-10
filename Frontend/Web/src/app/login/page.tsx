@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import {
-  ShieldAlert,
   Mail,
   Lock,
   ArrowRight,
@@ -12,6 +11,9 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  Shield,
+  Wifi,
+  Activity,
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -23,106 +25,238 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tick, setTick] = useState(0);
 
-  // If already logged in, redirect
-  if (user) {
-    router.replace(user.role === "admin" ? "/admin" : "/user");
-    return null;
-  }
+  useEffect(() => {
+    if (user) router.replace(user.role === "admin" ? "/admin" : "/user");
+  }, [user, router]);
+
+  // Blinking clock tick for the HUD decoration
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (user) return null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     const result = await login(email, password);
-
     if (result.error) {
       setError(result.error);
       setLoading(false);
       return;
     }
-
-    // Tiny delay for UX polish, then redirect
     setTimeout(() => {
-      // Re-read from context isn't reliable here — peek at what we know
       const isAdmin = email.toLowerCase().includes("admin");
       router.replace(isAdmin ? "/admin" : "/user");
     }, 300);
   };
 
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center p-6 relative min-h-screen">
-      {/* Ambient background effects */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-accent-purple/[0.04] rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-accent-pink/[0.03] rounded-full blur-[100px] pointer-events-none" />
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 
-      {/* ── Login Card ──────────────────────────────────────── */}
-      <div className="max-w-md w-full text-center z-10 animate-fade-in-up">
-        {/* Pulsing Argus Iris */}
-        <div className="flex justify-center mb-8">
-          <div className="w-[88px] h-[88px] rounded-full bg-gradient-to-tr from-accent-purple via-black to-accent-pink p-[3px] relative flex items-center justify-center animate-iris-breathe">
-            <div className="absolute inset-0 bg-black rounded-full m-[3px] flex items-center justify-center">
-              <ShieldAlert className="w-9 h-9 text-accent-purple animate-pulse" />
-            </div>
-            {/* Outer ring glow */}
-            <div className="absolute -inset-3 rounded-full border border-accent-purple/10 pulse-ring-violet pointer-events-none" />
+  return (
+    <div
+      className="flex min-h-[100dvh] w-full"
+      style={{ fontFamily: "'Outfit', sans-serif" }}
+    >
+      {/* ── LEFT PANEL — Brand & HUD Decoration ─────────────── */}
+      <div
+        className="hidden lg:flex flex-col justify-between w-[45%] shrink-0 relative overflow-hidden p-12"
+        style={{ background: "linear-gradient(160deg, #0e0e0f 0%, #131314 40%, #1a0f28 100%)" }}
+      >
+        {/* Grid overlay */}
+        <div className="absolute inset-0 grid-bg opacity-60 pointer-events-none" />
+
+        {/* Purple glow blob */}
+        <div
+          className="absolute top-1/3 left-1/4 w-[400px] h-[400px] pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at center, rgba(142,45,226,0.12) 0%, transparent 70%)" }}
+        />
+        <div
+          className="absolute bottom-0 right-0 w-[300px] h-[300px] pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at center, rgba(75,6,225,0.08) 0%, transparent 70%)" }}
+        />
+
+        {/* Top: brand logo + wordmark */}
+        <div className="flex items-center gap-4 relative z-10 animate-fade-in-up">
+          <div
+            className="w-12 h-12 flex items-center justify-center relative overflow-hidden animate-iris-breathe"
+            style={{ border: "1px solid rgba(221,183,255,0.25)", background: "rgba(142,45,226,0.1)" }}
+          >
+            <img src="/logo.png" alt="ArgusX" className="w-8 h-8 object-contain" />
+            <div className="absolute inset-0" style={{ border: "1px solid rgba(142,45,226,0.2)" }} />
+          </div>
+          <div>
+            <p
+              className="text-xl tracking-[0.25em] text-white"
+              style={{ fontFamily: "'Zen Dots', sans-serif", textTransform: "uppercase" }}
+            >
+              ARGUS<span style={{ color: "#ddb7ff" }}>X</span>
+            </p>
+            <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: "#998ca0", fontFamily: "'Zen Dots', sans-serif" }}>
+              Guardentic OS v1.0
+            </p>
           </div>
         </div>
 
-        {/* Brand */}
-        <div className="space-y-2 mb-8 animate-fade-in-up-delay">
-          <h1 className="font-title text-4xl sm:text-5xl font-black tracking-[0.2em] bg-gradient-to-r from-white via-slate-100 to-accent-purple bg-clip-text text-transparent">
-            ARGUSX
+        {/* Center: the big hero text */}
+        <div className="relative z-10 animate-fade-in-up-delay">
+          <p className="text-[10px] tracking-[0.25em] uppercase mb-6" style={{ color: "#00e5ff", fontFamily: "'Zen Dots', sans-serif" }}>
+            Tactical Safety Intelligence
+          </p>
+          <h1
+            className="text-5xl mb-6 leading-tight"
+            style={{
+              fontFamily: "'Zen Dots', sans-serif",
+              textTransform: "uppercase",
+              background: "linear-gradient(135deg, #e5e2e3 0%, #cfc2d7 50%, #ddb7ff 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+              letterSpacing: "0.04em",
+            }}
+          >
+            Operator<br />Command<br />Station
           </h1>
-          <p className="text-[11px] text-slate-500 font-mono tracking-widest uppercase">
-            Guardentic Vision System — Secure Access
+          <p className="text-sm leading-relaxed max-w-[320px]" style={{ color: "#998ca0", fontFamily: "'Outfit', sans-serif" }}>
+            Real-time fleet intelligence, rider safety analytics, and agentic threat detection. Authenticate to access the grid.
+          </p>
+
+          {/* HUD stat row */}
+          <div className="flex gap-6 mt-10">
+            {[
+              { icon: Wifi, label: "Network", val: "SECURED" },
+              { icon: Shield, label: "Encryption", val: "AES-256" },
+              { icon: Activity, label: "Status", val: "NOMINAL" },
+            ].map(({ icon: Icon, label, val }) => (
+              <div key={label}>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Icon className="w-3 h-3" style={{ color: "#8e2de2" }} />
+                  <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color: "#6d6478", fontFamily: "'Zen Dots', sans-serif" }}>{label}</span>
+                </div>
+                <p className="text-xs font-bold" style={{ color: "#ddb7ff", fontFamily: "'Cormorant Garamond', Georgia, serif", letterSpacing: "0.1em" }}>{val}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom: live clock + protocol line */}
+        <div className="relative z-10 flex items-end justify-between animate-fade-in-up-delay-2">
+          <div>
+            <p
+              className="text-2xl tabular-nums"
+              style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", color: "#998ca0", letterSpacing: "0.12em" }}
+            >
+              {timeStr}
+            </p>
+            <p className="text-[9px] uppercase tracking-[0.18em] mt-1" style={{ color: "#6d6478", fontFamily: "'Zen Dots', sans-serif" }}>
+              LOCAL — UTC+05:00
+            </p>
+          </div>
+          <p className="text-[9px] uppercase tracking-[0.18em]" style={{ color: "#6d6478", fontFamily: "'Zen Dots', sans-serif" }}>
+            TLS 1.3 / JWT
           </p>
         </div>
 
-        {/* Glass Form Card */}
-        <div className="glass-panel-purple p-8 rounded-2xl border border-white/10 text-left animate-fade-in-up-delay-2">
-          <h2 className="text-sm font-bold text-slate-200 mb-1">
-            Operator Authentication
-          </h2>
-          <p className="text-[11px] text-slate-500 mb-6">
-            Enter your system credentials to access the portal.
-          </p>
+        {/* Decorative vertical rule */}
+        <div
+          className="absolute top-0 right-0 w-px h-full"
+          style={{ background: "linear-gradient(to bottom, transparent 0%, rgba(221,183,255,0.1) 30%, rgba(142,45,226,0.2) 60%, transparent 100%)" }}
+        />
+      </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+      {/* ── RIGHT PANEL — Auth Form ──────────────────────────── */}
+      <div
+        className="flex-1 flex flex-col items-center justify-center p-8 md:p-16 relative"
+        style={{ background: "#131314" }}
+      >
+        {/* Subtle ambient glow */}
+        <div
+          className="absolute top-0 right-0 w-[500px] h-[500px] pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at top right, rgba(75,6,225,0.06) 0%, transparent 60%)" }}
+        />
+
+        {/* Mobile-only logo */}
+        <div className="lg:hidden flex items-center gap-3 mb-12 self-start animate-fade-in-up">
+          <div
+            className="w-9 h-9 flex items-center justify-center overflow-hidden"
+            style={{ border: "1px solid rgba(221,183,255,0.2)", background: "rgba(142,45,226,0.08)" }}
+          >
+            <img src="/logo.png" alt="ArgusX" className="w-6 h-6 object-contain" />
+          </div>
+          <span
+            className="text-lg tracking-[0.2em] text-white"
+            style={{ fontFamily: "'Zen Dots', sans-serif", textTransform: "uppercase" }}
+          >
+            ARGUS<span style={{ color: "#ddb7ff" }}>X</span>
+          </span>
+        </div>
+
+        <div className="w-full max-w-[400px] relative z-10">
+          {/* Heading */}
+          <div className="mb-10 animate-fade-in-up">
+            <h2
+              className="text-2xl mb-2"
+              style={{
+                fontFamily: "'Zen Dots', sans-serif",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                color: "#e5e2e3",
+              }}
+            >
+              Authenticate
+            </h2>
+            <p className="text-sm" style={{ color: "#998ca0", fontFamily: "'Outfit', sans-serif" }}>
+              Enter your operator credentials to access the portal.
+            </p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in-up-delay">
             {/* Email */}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label
                 htmlFor="login-email"
-                className="text-[10px] text-slate-500 font-mono uppercase tracking-wider block"
+                className="block text-[11px] uppercase tracking-[0.15em] font-bold"
+                style={{ color: "#998ca0", fontFamily: "'Zen Dots', sans-serif" }}
               >
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#998ca0" }} />
                 <input
                   id="login-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@argusx.io"
+                  placeholder="operator@argusx.io"
                   required
                   autoComplete="email"
-                  className="glass-input pl-10"
+                  className="glass-input"
                 />
               </div>
             </div>
 
             {/* Password */}
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label
                 htmlFor="login-password"
-                className="text-[10px] text-slate-500 font-mono uppercase tracking-wider block"
+                className="block text-[11px] uppercase tracking-[0.15em] font-bold"
+                style={{ color: "#998ca0", fontFamily: "'Zen Dots', sans-serif" }}
               >
                 Password
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#998ca0" }} />
                 <input
                   id="login-password"
                   type={showPassword ? "text" : "password"}
@@ -131,26 +265,31 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
-                  className="glass-input pl-10 pr-10"
+                  className="glass-input"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
+                  style={{ color: "#998ca0" }}
                   tabIndex={-1}
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 bg-accent-red/10 border border-accent-red/20 text-accent-red text-xs p-3 rounded-lg">
+              <div
+                className="flex items-center gap-2.5 p-3 text-xs"
+                style={{
+                  background: "rgba(255,82,82,0.08)",
+                  border: "1px solid rgba(255,82,82,0.25)",
+                  color: "#ff5252",
+                  fontFamily: "'Outfit', sans-serif",
+                }}
+              >
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -158,14 +297,15 @@ export default function LoginPage() {
 
             {/* Submit */}
             <button
+              id="login-submit"
               type="submit"
               disabled={loading || !email || !password}
-              className="btn-primary w-full py-3 text-sm"
+              className="btn-primary w-full py-3.5"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Authenticating…
+                  Authenticating
                 </>
               ) : (
                 <>
@@ -176,24 +316,57 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Hint */}
-          <div className="mt-6 pt-4 border-t border-white/5">
-            <p className="text-[10px] text-slate-600 font-mono leading-relaxed">
-              DEMO ACCESS — Admin:{" "}
-              <span className="text-slate-400">admin@argusx.io</span> /{" "}
-              <span className="text-slate-400">argusx2026</span>
-              <br />
-              Rider:{" "}
-              <span className="text-slate-400">rider@argusx.io</span> /{" "}
-              <span className="text-slate-400">rider2026</span>
+          {/* Demo hint */}
+          <div
+            className="mt-8 pt-6 animate-fade-in-up-delay-2"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+          >
+            <p
+              className="text-[10px] uppercase tracking-[0.15em] mb-3 font-bold"
+              style={{ color: "#6d6478", fontFamily: "'Zen Dots', sans-serif" }}
+            >
+              Demo Access
             </p>
+            <div className="space-y-2">
+              {[
+                { role: "Admin", email: "nathanasif@gmail.com", pass: "admin123" },
+                { role: "Rider", email: "rider@argusx.io", pass: "rider2026" },
+              ].map((cred) => (
+                <button
+                  key={cred.role}
+                  type="button"
+                  onClick={() => { setEmail(cred.email); setPassword(cred.pass); }}
+                  className="w-full text-left px-3 py-2.5 transition-colors group"
+                  style={{
+                    background: "rgba(255,255,255,0.015)",
+                    border: "1px solid rgba(255,255,255,0.05)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-[0.12em]"
+                      style={{ color: "#998ca0", fontFamily: "'Zen Dots', sans-serif" }}
+                    >
+                      {cred.role}
+                    </span>
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-[0.1em]"
+                      style={{ color: "#ddb7ff", fontFamily: "'Cormorant Garamond', serif" }}
+                    >
+                      Fill In
+                    </span>
+                  </div>
+                  <p
+                    className="text-[11px] mt-0.5"
+                    style={{ color: "#4d4354", fontFamily: "'Cormorant Garamond', serif", letterSpacing: "0.05em" }}
+                  >
+                    {cred.email}
+                  </p>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-6 text-[10px] text-slate-600 font-mono flex justify-between items-center px-2">
-          <span>PROTOCOL: TLS 1.3 / JWT</span>
-          <span>SYSTEM: SECURE</span>
         </div>
       </div>
     </div>

@@ -270,7 +270,7 @@ export default function FleetTracking() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSimRunning(!simRunning)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all duration-300 ${
+              className={`px-4 py-2 rounded-none text-xs font-bold transition-all duration-300 ${
                 simRunning 
                   ? "bg-accent-purple/20 border border-accent-purple/40 text-accent-purple hover:bg-accent-purple/30" 
                   : "bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700"
@@ -278,8 +278,8 @@ export default function FleetTracking() {
             >
               SIMULATION: {simRunning ? "ACTIVE" : "PAUSED"}
             </button>
-            <div className="glass-panel border border-white/5 px-4 py-2 rounded-lg text-xs flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full animate-pulse ${
+            <div className="glass-panel tech-panel border border-white/5 px-4 py-2 rounded-none text-xs flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-none animate-pulse ${
                 socketStatus === "CONNECTED" ? "bg-accent-cyan" : socketStatus === "CONNECTING" ? "bg-accent-yellow" : "bg-accent-red"
               }`} />
               <span>WS: {socketStatus}</span>
@@ -292,7 +292,7 @@ export default function FleetTracking() {
           
           {/* Left: Active Riders Grid (4 Cols) */}
           <div className="lg:col-span-4 flex flex-col gap-6">
-            <div className="glass-panel rounded-2xl border border-white/5 p-6 flex flex-col flex-1 max-h-[600px] overflow-hidden">
+            <div className="glass-panel tech-panel rounded-none border border-white/5 p-6 flex flex-col flex-1 max-h-[600px] overflow-hidden">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-title font-bold text-slate-200 flex items-center gap-2">
                   <Users className="w-4 h-4 text-accent-purple" />
@@ -316,7 +316,7 @@ export default function FleetTracking() {
                     <div
                       key={rider.id}
                       onClick={() => setSelectedRiderId(rider.id)}
-                      className={`p-4 rounded-xl border transition-all duration-300 cursor-pointer relative ${
+                      className={`p-4 rounded-none border transition-all duration-300 cursor-pointer relative ${
                         isSelected 
                           ? "bg-gradient-to-r from-accent-purple/15 to-transparent border-accent-purple/40" 
                           : "bg-white/[0.01] border-white/5 hover:border-white/10 hover:bg-white/[0.03]"
@@ -326,7 +326,7 @@ export default function FleetTracking() {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-sm text-white">{rider.name}</span>
-                            <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded text-slate-400 font-mono">
+                            <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded-none text-slate-400 font-mono">
                               {rider.id}
                             </span>
                           </div>
@@ -344,13 +344,13 @@ export default function FleetTracking() {
 
                         {/* Status Light */}
                         <div className="flex flex-col items-end gap-1.5">
-                          <span className={`text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded bg-black/40 border border-white/5 ${
+                          <span className={`text-[9px] font-black tracking-wider uppercase px-2 py-0.5 rounded-none bg-black/40 border border-white/5 ${
                             isCritical ? "text-accent-red" : isWarning ? "text-accent-yellow" : "text-accent-green"
                           }`}>
                             {rider.threatLevel}
                           </span>
                           {rider.deviceStatus === "CONNECTED" && (
-                            <span className="w-2 h-2 rounded-full bg-accent-purple animate-ping" />
+                            <span className="w-2 h-2 rounded-none bg-accent-purple animate-ping" />
                           )}
                         </div>
                       </div>
@@ -365,7 +365,7 @@ export default function FleetTracking() {
           <div className="lg:col-span-8 flex flex-col gap-8">
             
             {/* Map Visualizer Card */}
-            <div className="glass-panel rounded-2xl border border-white/5 p-6 flex flex-col h-[350px] relative overflow-hidden">
+            <div className="glass-panel tech-panel rounded-none border border-white/5 p-6 flex flex-col h-[350px] relative overflow-hidden">
               <div className="absolute inset-0 bg-zinc-950/20 z-0" />
               
               {/* Tactical Grid Overlay Map (Canvas/SVG representation) */}
@@ -405,17 +405,17 @@ export default function FleetTracking() {
               </div>
 
               {/* Overlay legend */}
-              <div className="absolute bottom-6 left-6 z-10 bg-black/60 border border-white/5 px-3 py-2 rounded-lg text-[10px] font-mono text-slate-400 space-y-1">
+              <div className="absolute bottom-6 left-6 z-10 bg-black/60 border border-white/5 px-3 py-2 rounded-none text-[10px] font-mono text-slate-400 space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]" />
+                  <span className="w-1.5 h-1.5 rounded-none bg-[#8b5cf6]" />
                   <span>NORMAL STATUS</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]" />
+                  <span className="w-1.5 h-1.5 rounded-none bg-[#f59e0b]" />
                   <span>WARNING ALERT</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444]" />
+                  <span className="w-1.5 h-1.5 rounded-none bg-[#ef4444]" />
                   <span>CRITICAL IMPACT THREAT</span>
                 </div>
               </div>
@@ -425,9 +425,9 @@ export default function FleetTracking() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               
               {/* Selected Operator Stats */}
-              <div className="glass-panel rounded-2xl border border-white/5 p-6 flex flex-col justify-between">
+              <div className="glass-panel tech-panel rounded-none border border-white/5 p-6 flex flex-col justify-between">
                 <div>
-                  <h4 className="text-xs text-slate-500 font-mono tracking-widest uppercase mb-4">
+                  <h4 className="text-xs text-slate-500 font-sans tracking-widest uppercase mb-4">
                     Active Telemetry Profile
                   </h4>
                   <div className="flex items-center justify-between mb-4">
@@ -446,13 +446,13 @@ export default function FleetTracking() {
 
                   <div className="grid grid-cols-2 gap-4 py-4 border-t border-b border-white/5 my-4">
                     <div>
-                      <div className="text-[10px] text-slate-500 font-mono uppercase">Coordinates</div>
+                      <div className="text-[10px] text-slate-300 font-title uppercase tracking-wider">Coordinates</div>
                       <div className="text-sm font-bold text-slate-200 mt-1 font-mono">
                         {selectedRider.lat}, {selectedRider.lng}
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] text-slate-500 font-mono uppercase">Operator Battery</div>
+                      <div className="text-[10px] text-slate-300 font-title uppercase tracking-wider">Operator Battery</div>
                       <div className="text-sm font-bold text-slate-200 mt-1">
                         {selectedRider.battery}%
                       </div>
@@ -460,8 +460,8 @@ export default function FleetTracking() {
                   </div>
 
                   <div>
-                    <span className="text-[10px] text-slate-500 font-mono uppercase">AI Perception Feed Context</span>
-                    <p className="text-xs text-slate-300 mt-1 bg-white/[0.02] border border-white/5 p-3 rounded-lg leading-relaxed">
+                    <span className="text-[10px] text-slate-300 font-title uppercase tracking-wider">AI Perception Feed Context</span>
+                    <p className="text-xs text-slate-300 mt-1 bg-white/[0.02] border border-white/5 p-3 rounded-none leading-relaxed">
                       {selectedRider.helmetCam}
                     </p>
                   </div>
@@ -469,9 +469,9 @@ export default function FleetTracking() {
               </div>
 
               {/* Direct HUD Command Overlay Console */}
-              <div className="glass-panel rounded-2xl border border-white/5 p-6 flex flex-col justify-between">
+              <div className="glass-panel tech-panel rounded-none border border-white/5 p-6 flex flex-col justify-between">
                 <div>
-                  <h4 className="text-xs text-slate-500 font-mono tracking-widest uppercase mb-4 flex items-center gap-1.5">
+                  <h4 className="text-xs text-slate-500 font-sans tracking-widest uppercase mb-4 flex items-center gap-1.5">
                     <Cpu className="w-3.5 h-3.5 text-accent-purple" />
                     HUD Interface Command Center
                   </h4>
@@ -482,14 +482,14 @@ export default function FleetTracking() {
 
                   <form onSubmit={handleSendCommand} className="space-y-4">
                     <div>
-                      <label className="text-[10px] text-slate-500 font-mono uppercase block mb-2">
+                      <label className="text-[10px] text-slate-300 font-title uppercase tracking-wider block mb-2">
                         UI Command Selection
                       </label>
                       <div className="relative">
                         <select
                           value={hudCommand}
                           onChange={(e) => setHudCommand(e.target.value)}
-                          className="w-full text-xs bg-black/60 border border-white/10 rounded-lg p-3 pr-10 text-slate-200 font-mono focus:border-accent-purple focus:outline-none appearance-none cursor-pointer"
+                          className="w-full text-xs bg-black/60 border border-white/10 rounded-none p-3 pr-10 text-slate-200 font-mono focus:border-accent-purple focus:outline-none appearance-none cursor-pointer"
                         >
                           <option value="TRIGGER_HUD_ALERTS" className="bg-slate-900 text-slate-200">TRIGGER_HUD_ALERTS</option>
                           <option value="PRUNE_NON_ESSENTIAL_WIDGETS" className="bg-slate-900 text-slate-200">PRUNE_NON_ESSENTIAL_WIDGETS</option>
@@ -503,7 +503,7 @@ export default function FleetTracking() {
                     <button
                       type="submit"
                       disabled={selectedRider.deviceStatus === "DISCONNECTED"}
-                      className={`w-full flex items-center justify-center gap-2 p-3 rounded-lg text-xs font-bold transition-all duration-300 ${
+                      className={`w-full flex items-center justify-center gap-2 p-3 rounded-none text-xs font-bold transition-all duration-300 ${
                         selectedRider.deviceStatus === "DISCONNECTED" 
                           ? "bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed" 
                           : "bg-accent-purple hover:bg-accent-purple/80 text-white shadow-lg shadow-accent-purple/20"
@@ -524,9 +524,9 @@ export default function FleetTracking() {
             </div>
 
             {/* Bottom Log Streaming Output */}
-            <div className="glass-panel rounded-2xl border border-white/5 p-6 flex flex-col h-[200px]">
+            <div className="glass-panel tech-panel rounded-none border border-white/5 p-6 flex flex-col h-[200px]">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs text-slate-500 font-mono tracking-widest uppercase flex items-center gap-1.5">
+                <h4 className="text-xs text-slate-500 font-sans tracking-widest uppercase flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5 text-accent-purple animate-pulse" />
                   Live Safety Pulse Stream
                 </h4>
@@ -536,7 +536,7 @@ export default function FleetTracking() {
                 </div>
               </div>
 
-              <div className="flex-1 bg-black/40 border border-white/5 rounded-lg p-4 font-mono text-slate-400 text-xs overflow-y-auto space-y-2 max-h-[120px] select-all">
+              <div className="flex-1 bg-black/40 border border-white/5 rounded-none p-4 font-mono text-slate-400 text-xs overflow-y-auto space-y-2 max-h-[120px] select-all">
                 {consoleLogs.length === 0 ? (
                   <div className="text-slate-600 italic">Listening for inbound device packet payloads...</div>
                 ) : (

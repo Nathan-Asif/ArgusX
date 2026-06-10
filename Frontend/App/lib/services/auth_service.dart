@@ -17,7 +17,7 @@ class ArgusXAuthService {
     if (!isConfigured) return;
     await Supabase.initialize(
       url: ArgusXConfig.supabaseUrl,
-      anonKey: ArgusXConfig.supabaseAnonKey,
+      publishableKey: ArgusXConfig.supabaseAnonKey,
     );
   }
 
@@ -47,6 +47,14 @@ class ArgusXAuthService {
         'role': 'customer',
       },
     );
+  }
+
+  Future<void> resetPassword({required String email}) async {
+    final client = _client;
+    if (client == null) {
+      throw Exception('Supabase is not configured.');
+    }
+    await client.auth.resetPasswordForEmail(email);
   }
 
   Future<void> signOut() async {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 import '../models/sim_launch_config.dart';
 import '../services/navigation_service.dart';
 import '../services/voice_destination_service.dart';
@@ -145,8 +145,8 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    const activeColor = Color(0xFFDDB7FF);
-    const glowColor = Color(0xFF8E2DE2);
+    final activeColor = Theme.of(context).colorScheme.primary;
+    final glowColor = Theme.of(context).colorScheme.secondary;
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -156,7 +156,7 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
         children: [
           Text(
             'RIDE SETUP',
-            style: GoogleFonts.spaceGrotesk(
+            style: ArgusFonts.display(
               color: const Color(0xFFE5E2E3),
               fontSize: 28,
               fontWeight: FontWeight.w800,
@@ -166,7 +166,7 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
           const SizedBox(height: 8),
           Text(
             'Set your destination, confirm the route, then start the live safety ride.',
-            style: GoogleFonts.inter(color: const Color(0xFF998CA0), fontSize: 11),
+            style: ArgusFonts.body(color: const Color(0xFF998CA0), fontSize: 11),
           ),
           const SizedBox(height: 20),
           TechPanel(
@@ -176,15 +176,15 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('DESTINATION',
-                    style: GoogleFonts.spaceGrotesk(
+                    style: ArgusFonts.display(
                         color: activeColor, fontSize: 12, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _destinationController,
-                  style: GoogleFonts.spaceGrotesk(color: Colors.white, fontSize: 13),
+                  style: ArgusFonts.display(color: Colors.white, fontSize: 13),
                   decoration: InputDecoration(
                     hintText: 'e.g. Saddar, Karachi',
-                    hintStyle: GoogleFonts.inter(color: const Color(0xFF6B7280), fontSize: 12),
+                    hintStyle: ArgusFonts.body(color: const Color(0xFF6B7280), fontSize: 12),
                     filled: true,
                     fillColor: const Color(0xFF131314),
                     border: OutlineInputBorder(
@@ -233,7 +233,7 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
           const SizedBox(height: 16),
           Text(
             _status,
-            style: GoogleFonts.inter(color: const Color(0xFF93C5FD), fontSize: 11),
+            style: ArgusFonts.body(color: const Color(0xFF93C5FD), fontSize: 11),
           ),
           const SizedBox(height: 20),
           ElevatedButton(
@@ -245,7 +245,7 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
             ),
             child: Text(
               'START SAFETY RIDE',
-              style: GoogleFonts.spaceGrotesk(
+              style: ArgusFonts.display(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 2,

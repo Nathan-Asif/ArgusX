@@ -59,9 +59,11 @@ class VoiceDestinationService {
         onConfirmed: onConfirmed,
         onStatus: onStatus,
       ),
-      listenFor: const Duration(seconds: 8),
-      pauseFor: const Duration(seconds: 2),
-      localeId: 'en_US',
+      listenOptions: stt.SpeechListenOptions(
+        listenFor: const Duration(seconds: 8),
+        pauseFor: const Duration(seconds: 2),
+        localeId: 'en_US',
+      ),
     );
   }
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 
 class TechTreeNode extends StatelessWidget {
   final String title;
@@ -13,17 +13,18 @@ class TechTreeNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = Theme.of(context).colorScheme.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Icon(Icons.folder_outlined, color: Color(0xFFDDB7FF), size: 14.0),
+            Icon(Icons.folder_outlined, color: activeColor, size: 14.0),
             const SizedBox(width: 8.0),
             Text(
               title,
-              style: GoogleFonts.spaceGrotesk(
-                color: const Color(0xFFDDB7FF),
+              style: ArgusFonts.display(
+                color: activeColor,
                 fontSize: 11.0,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
@@ -38,7 +39,7 @@ class TechTreeNode extends StatelessWidget {
             children: items.map((item) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 4.0),
-                child: _buildItemRow(item),
+                child: _buildItemRow(item, context),
               );
             }).toList(),
           ),
@@ -47,10 +48,10 @@ class TechTreeNode extends StatelessWidget {
     );
   }
 
-  Widget _buildItemRow(TechTreeItem item) {
+  Widget _buildItemRow(TechTreeItem item, BuildContext context) {
     final bool isSelected = item.isSelected;
-    const activeColor = Color(0xFFDDB7FF);
-    const glowColor = Color(0xFF8E2DE2);
+    final activeColor = Theme.of(context).colorScheme.primary;
+    final glowColor = Theme.of(context).colorScheme.secondary;
     const inactiveColor = Color(0xFFE5E2E3);
 
     return Container(
@@ -82,7 +83,7 @@ class TechTreeNode extends StatelessWidget {
             children: [
               Text(
                 '-- ',
-                style: GoogleFonts.spaceGrotesk(
+                style: ArgusFonts.display(
                   color: const Color(0xFF4D4354),
                   fontSize: 11.0,
                   fontWeight: FontWeight.bold,
@@ -90,7 +91,7 @@ class TechTreeNode extends StatelessWidget {
               ),
               Text(
                 item.label,
-                style: GoogleFonts.spaceGrotesk(
+                style: ArgusFonts.display(
                   color: isSelected ? activeColor : inactiveColor,
                   fontSize: 10.0,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
@@ -101,7 +102,7 @@ class TechTreeNode extends StatelessWidget {
           ),
           Text(
             '[${item.value}]',
-            style: GoogleFonts.spaceGrotesk(
+            style: ArgusFonts.display(
               color: const Color(0xFF998CA0),
               fontSize: 10.0,
               fontWeight: FontWeight.w600,

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 
 class EventLogPanel extends StatefulWidget {
   const EventLogPanel({super.key});
@@ -71,7 +71,7 @@ class _EventLogPanelState extends State<EventLogPanel> with SingleTickerProvider
           children: [
             Text(
               'EVENT.LOG',
-              style: GoogleFonts.spaceGrotesk(
+              style: ArgusFonts.display(
                 color: const Color(0xFFDDB7FF),
                 fontSize: 13.0,
                 fontWeight: FontWeight.bold,
@@ -102,7 +102,7 @@ class _EventLogPanelState extends State<EventLogPanel> with SingleTickerProvider
                 children: [
                   Text(
                     log['time'],
-                    style: GoogleFonts.spaceGrotesk(
+                    style: ArgusFonts.display(
                       color: log['color'] as Color,
                       fontSize: 12.0,
                       fontWeight: FontWeight.w600,
@@ -113,7 +113,7 @@ class _EventLogPanelState extends State<EventLogPanel> with SingleTickerProvider
                   Expanded(
                     child: Text(
                       log['message'],
-                      style: GoogleFonts.spaceGrotesk(
+                      style: ArgusFonts.display(
                         color: log['msgColor'] as Color,
                         fontSize: 12.0,
                         fontWeight: FontWeight.bold,
@@ -134,7 +134,7 @@ class _EventLogPanelState extends State<EventLogPanel> with SingleTickerProvider
               children: [
                 Text(
                   '[AWAIT]',
-                  style: GoogleFonts.spaceGrotesk(
+                  style: ArgusFonts.display(
                     color: const Color(0xFF4D4354),
                     fontSize: 12.0,
                     fontWeight: FontWeight.w600,
@@ -144,7 +144,7 @@ class _EventLogPanelState extends State<EventLogPanel> with SingleTickerProvider
                 const SizedBox(width: 8.0),
                 Text(
                   'LISTENING...',
-                  style: GoogleFonts.spaceGrotesk(
+                  style: ArgusFonts.display(
                     color: const Color(0xFF4D4354),
                     fontSize: 12.0,
                     fontWeight: FontWeight.bold,

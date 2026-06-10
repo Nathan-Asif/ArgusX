@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 
 class HudNavBanner extends StatelessWidget {
   final Map<String, dynamic> navigation;
@@ -31,7 +31,7 @@ class HudNavBanner extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             arrow.replaceAll('_', ' '),
-            style: GoogleFonts.spaceGrotesk(
+            style: ArgusFonts.display(
               color: const Color(0xFF34D399),
               fontSize: 11,
               fontWeight: FontWeight.bold,
@@ -42,7 +42,7 @@ class HudNavBanner extends StatelessWidget {
           Text(
             distanceM != null ? 'In ${distanceM}m - $instruction' : instruction,
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
+            style: ArgusFonts.body(
               color: const Color(0xFFE5E2E3),
               fontSize: 10,
             ),

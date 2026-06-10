@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 
 class TechToggle extends StatefulWidget {
   final String label;
@@ -22,8 +22,8 @@ class TechToggle extends StatefulWidget {
 class _TechToggleState extends State<TechToggle> {
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFF8E2DE2); // Purple background track
-    const thumbColor = Color(0xFF2962FF); // Blue thumb
+    final activeColor = Theme.of(context).colorScheme.primary; // Dynamic background track
+    final thumbColor = Theme.of(context).colorScheme.secondary; // Dynamic thumb
     const inactiveBorder = Color(0xFF4D4354);
     const inactiveBg = Color(0xFF161517);
     const inactiveThumb = Color(0xFF353436);
@@ -39,7 +39,7 @@ class _TechToggleState extends State<TechToggle> {
             children: [
               Text(
                 widget.label,
-                style: GoogleFonts.spaceGrotesk(
+                style: ArgusFonts.display(
                   color: const Color(0xFFE5E2E3),
                   fontSize: 10.0,
                   fontWeight: FontWeight.bold,
@@ -49,7 +49,7 @@ class _TechToggleState extends State<TechToggle> {
               const SizedBox(height: 2.0),
               Text(
                 widget.subLabel,
-                style: GoogleFonts.spaceGrotesk(
+                style: ArgusFonts.display(
                   color: const Color(0xFF998CA0),
                   fontSize: 9.0,
                 ),

@@ -80,75 +80,130 @@ class ArgusXGoogleMapsClient:
         step_index: int = 0,
     ) -> tuple[RouteContext, RouteVisualization, Destination] | None:
         """Fetch driving directions and extract the active maneuver + route polyline."""
-        if not self.is_configured or not self._settings.google_maps_enabled:
-            return None
+        resolved_origin = None
+        dest = None
 
-        resolved_origin = await self._ensure_point_coords(origin, fallback_label="Origin")
-        dest = await self._ensure_destination_coords(destination)
-        if resolved_origin is None or dest is None:
-            return None
+        if self.is_configured and self._settings.google_maps_enabled:
+            try:
+                resolved_origin = await self._ensure_point_coords(origin, fallback_label="Origin")
+            except Exception as e:
+                logger.warning("Failed to resolve origin coords: %s", e)
+            try:
+                dest = await self._ensure_destination_coords(destination)
+            except Exception as e:
+                logger.warning("Failed to resolve destination coords: %s", e)
+
+        # Coordinate fallbacks if geocoding failed or disabled
+        if resolved_origin is None:
+            resolved_origin = {
+                "lat": float(origin.get("lat") or 24.8607),
+                "lng": float(origin.get("lng") or 67.0011),
+                "label": origin.get("label") or "Origin",
+            }
+        if dest is None:
+            dest = {
+                "lat": float(destination.get("lat") or 24.8687),
+                "lng": float(destination.get("lng") or 67.0081),
+                "label": destination.get("label") or "Destination",
+            }
 
         o_lat = float(resolved_origin["lat"])
         o_lng = float(resolved_origin["lng"])
         d_lat = float(dest["lat"])
         d_lng = float(dest["lng"])
 
-        client = self._require_client()
-        response = await client.get(
-            _DIRECTIONS_URL,
-            params={
-                "origin": f"{o_lat},{o_lng}",
-                "destination": f"{d_lat},{d_lng}",
-                "mode": "driving",
-                "key": self._settings.google_maps_api_key,
-            },
-        )
-        response.raise_for_status()
-        payload = response.json()
-        if payload.get("status") != "OK" or not payload.get("routes"):
-            logger.warning("Directions failed: %s", payload.get("status"))
-            return None
+        # Try Google Directions
+        if self.is_configured and self._settings.google_maps_enabled:
+            try:
+                client = self._require_client()
+                response = await client.get(
+                    _DIRECTIONS_URL,
+                    params={
+                        "origin": f"{o_lat},{o_lng}",
+                        "destination": f"{d_lat},{d_lng}",
+                        "mode": "driving",
+                        "key": self._settings.google_maps_api_key,
+                    },
+                )
+                response.raise_for_status()
+                payload = response.json()
+                if payload.get("status") == "OK" and payload.get("routes"):
+                    route = payload["routes"][0]
+                    leg = route["legs"][0]
+                    steps = leg.get("steps", [])
+                    if steps:
+                        idx = max(0, min(step_index, len(steps) - 1))
+                        step = steps[idx]
+                        maneuver = str(step.get("maneuver", "straight"))
+                        html_instruction = str(step.get("html_instructions", ""))
+                        plain_instruction = _strip_html(html_instruction) or "Continue on route"
 
-        route = payload["routes"][0]
-        leg = route["legs"][0]
-        steps = leg.get("steps", [])
-        if not steps:
-            return None
+                        route_context: RouteContext = {
+                            "arrow": _maneuver_to_arrow(maneuver, plain_instruction),
+                            "instruction": plain_instruction,
+                            "distance_m": int(step.get("distance", {}).get("value", 0)),
+                            "duration_s": int(step.get("duration", {}).get("value", 0)),
+                            "step_index": idx,
+                            "total_steps": len(steps),
+                            "maneuver": maneuver,
+                            "source": "google_directions",
+                        }
 
-        idx = max(0, min(step_index, len(steps) - 1))
-        step = steps[idx]
-        maneuver = str(step.get("maneuver", "straight"))
-        html_instruction = str(step.get("html_instructions", ""))
-        plain_instruction = _strip_html(html_instruction) or "Continue on route"
+                        polyline = route.get("overview_polyline", {}).get("points", "")
+                        route_visualization: RouteVisualization = {
+                            "polyline": polyline,
+                            "origin": resolved_origin,
+                            "destination": dest,
+                            "distance_remaining_m": int(leg.get("distance", {}).get("value", 0)),
+                            "leg_distance_m": int(leg.get("distance", {}).get("value", 0)),
+                            "step_index": idx,
+                            "total_steps": len(steps),
+                            "source": "google_directions",
+                            "static_map_url": self.build_static_map_url(
+                                resolved_origin,
+                                dest,
+                                polyline,
+                            ),
+                        }
+                        return route_context, route_visualization, resolved_origin
+                else:
+                    logger.warning("Directions API status not OK: %s", payload.get("status"))
+            except Exception as e:
+                logger.warning("Google Maps Directions call failed: %s", e)
 
-        route_context: RouteContext = {
-            "arrow": _maneuver_to_arrow(maneuver, plain_instruction),
-            "instruction": plain_instruction,
-            "distance_m": int(step.get("distance", {}).get("value", 0)),
-            "duration_s": int(step.get("duration", {}).get("value", 0)),
-            "step_index": idx,
-            "total_steps": len(steps),
-            "maneuver": maneuver,
-            "source": "google_directions",
+        # Fallback mock route with dynamic, real static map URL (if configured) or placeholder
+        mock_dest_label = dest.get("label", "Destination")
+        mock_polyline = "a~~FzsgvOq@n@`@p@`@`@`@"
+        mock_route_ctx: RouteContext = {
+            "arrow": "RIGHT" if step_index % 2 == 0 else "LEFT",
+            "instruction": f"Prepare to turn towards {mock_dest_label} (Simulation Path)",
+            "distance_m": 850 - (step_index * 150),
+            "duration_s": 120,
+            "step_index": step_index,
+            "total_steps": 4,
+            "maneuver": "turn-right" if step_index % 2 == 0 else "turn-left",
+            "source": "simulation_fallback",
         }
+        
+        static_map_url = ""
+        if self.is_configured:
+            try:
+                static_map_url = self.build_static_map_url(resolved_origin, dest, mock_polyline)
+            except Exception:
+                pass
 
-        polyline = route.get("overview_polyline", {}).get("points", "")
-        route_visualization: RouteVisualization = {
-            "polyline": polyline,
+        mock_route_viz: RouteVisualization = {
+            "polyline": mock_polyline,
             "origin": resolved_origin,
             "destination": dest,
-            "distance_remaining_m": int(leg.get("distance", {}).get("value", 0)),
-            "leg_distance_m": int(leg.get("distance", {}).get("value", 0)),
-            "step_index": idx,
-            "total_steps": len(steps),
-            "source": "google_directions",
-            "static_map_url": self.build_static_map_url(
-                resolved_origin,
-                dest,
-                polyline,
-            ),
+            "distance_remaining_m": 850 - (step_index * 150),
+            "leg_distance_m": 850,
+            "step_index": step_index,
+            "total_steps": 4,
+            "source": "simulation_fallback",
+            "static_map_url": static_map_url,
         }
-        return route_context, route_visualization, resolved_origin
+        return mock_route_ctx, mock_route_viz, resolved_origin
 
     def build_static_map_url(
         self,

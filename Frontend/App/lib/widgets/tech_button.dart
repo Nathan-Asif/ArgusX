@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:argusx/config/argus_fonts.dart';
 import 'tech_panel.dart';
 
 class TechButton extends StatefulWidget {
@@ -68,8 +68,8 @@ class _TechButtonState extends State<TechButton> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    const activeColor = Color(0xFFDDB7FF);
-    const focusGlowColor = Color(0xFF8E2DE2);
+    final activeColor = Theme.of(context).colorScheme.primary;
+    final focusGlowColor = Theme.of(context).colorScheme.secondary;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -108,8 +108,8 @@ class _TechButtonState extends State<TechButton> with SingleTickerProviderStateM
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xFF8E2DE2).withValues(alpha: 0.85), // neon purple
-                      const Color(0xFF4A00E0).withValues(alpha: 0.85), // deep command
+                      focusGlowColor.withValues(alpha: 0.85),
+                      focusGlowColor.withValues(alpha: 0.5),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -132,7 +132,7 @@ class _TechButtonState extends State<TechButton> with SingleTickerProviderStateM
                       // Text label
                       Text(
                         _isSyncing ? "SYNCING..." : widget.label.toUpperCase(),
-                        style: GoogleFonts.spaceGrotesk(
+                        style: ArgusFonts.display(
                           color: const Color(0xFFE5E2E3),
                           fontSize: 14.0,
                           fontWeight: FontWeight.w700,
