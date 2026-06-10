@@ -1,0 +1,7 @@
+# Copy to .dart_defines.local (gitignored) — used by scripts/build_apk_prod.ps1
+# Use Supabase anon / publishable key (NOT service role).
+
+ARGUSX_API_URL=https://argusx-api.codemelodies.com
+ARGUSX_WS_URL=wss://argusx-api.codemelodies.com/ws/pulse
+ARGUSX_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+ARGUSX_SUPABASE_ANON_KEY=your_anon_key_here

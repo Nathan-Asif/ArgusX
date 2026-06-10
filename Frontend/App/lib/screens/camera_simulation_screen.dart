@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../config/argusx_config.dart';
 import '../models/sim_launch_config.dart';
@@ -45,17 +46,25 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
   int _routeStepIndex = 0;
   int _remainingDistanceM = 0;
   bool _advancingStep = false;
+  String _destinationLabel = '';
+  Map<String, dynamic> _routeOrigin = {};
+  double _movedSinceLastStepM = 0;
+  DateTime? _lastStepAdvanceAt;
+  static const _pulseInterval = Duration(seconds: 3);
 
   // ── WebSocket backend link ───────────────────────────────────────
   final ArgusXWebSocketService _ws = ArgusXWebSocketService();
   final ArgusXNavigationService _navService = ArgusXNavigationService();
   final NavigationVoiceService _navVoice = NavigationVoiceService();
   StreamSubscription<ArgusXPulseResponse>? _wsSub;
+  StreamSubscription<Position>? _positionSub;
   Timer? _frameTimer;
   WsConnectionState _wsState = WsConnectionState.disconnected;
   double _lat = 24.9107;
   double _lng = 67.0311;
-  double _speed = 28.0;
+  double _speed = 0;
+  double? _prevGpsLat;
+  double? _prevGpsLng;
 
   // ── Boot sequence state ─────────────────────────────────────────────
   bool _isBooting = true;
@@ -110,6 +119,12 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     _ws.connectionState.listen((s) {
       if (mounted) setState(() => _wsState = s);
     });
+    _destinationLabel = widget.config.destinationLabel;
+    _routeOrigin = Map<String, dynamic>.from(
+      widget.config.origin ??
+          widget.config.routeVisualization?['origin'] as Map? ??
+          {},
+    );
     if (widget.config.origin?['lat'] != null) {
       _lat = (widget.config.origin!['lat'] as num).toDouble();
       _lng = (widget.config.origin!['lng'] as num).toDouble();
@@ -124,11 +139,61 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
 
     await _navVoice.initialize();
     _navVoice.enabled = _voiceGuidance;
+    await _startGpsTracking();
 
     await _ws.connect(ArgusXConfig.wsUrl);
     _wsSub = _ws.responses.listen(_onBackendResponse);
+    if (widget.config.hasNavigation) {
+      await _navVoice.announceRideStart(_destinationLabel);
+    }
     _startFrameLoop();
     _sendFrame();
+  }
+
+  Future<void> _startGpsTracking() async {
+    try {
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        return;
+      }
+
+      final current = await Geolocator.getCurrentPosition();
+      _applyGpsPosition(current);
+
+      _positionSub = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 8,
+        ),
+      ).listen(_applyGpsPosition);
+    } catch (_) {
+      // Keep ride-setup origin when GPS is unavailable.
+    }
+  }
+
+  void _applyGpsPosition(Position pos) {
+    if (_prevGpsLat != null && _prevGpsLng != null) {
+      final moved = Geolocator.distanceBetween(
+        _prevGpsLat!,
+        _prevGpsLng!,
+        pos.latitude,
+        pos.longitude,
+      );
+      _movedSinceLastStepM += moved;
+    }
+    _prevGpsLat = pos.latitude;
+    _prevGpsLng = pos.longitude;
+
+    if (!mounted) return;
+    setState(() {
+      _lat = pos.latitude;
+      _lng = pos.longitude;
+      _speed = pos.speed >= 0 ? pos.speed * 3.6 : 0;
+    });
   }
 
   Future<void> _initCamera() async {
@@ -168,17 +233,23 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
 
   // ── Backend frame loop ─────────────────────────────────────────
   void _startFrameLoop() {
-    // Send a telemetry frame every 1.5 s.
-    _frameTimer = Timer.periodic(const Duration(milliseconds: 1500), (_) {
+    _frameTimer = Timer.periodic(_pulseInterval, (_) {
       _sendFrame();
     });
   }
 
+  void _syncRouteContextPayload() {
+    if (_routeContext.isEmpty) return;
+    _routeContext = {
+      ..._routeContext,
+      'step_index': _routeStepIndex,
+      if (_remainingDistanceM > 0) 'distance_m': _remainingDistanceM,
+    };
+  }
+
   Future<void> _sendFrame() async {
-    _lat += 0.00005;
-    _lng += 0.00003;
-    _speed = 45.0 + (DateTime.now().millisecond % 20).toDouble();
     _tickNavigationProgress();
+    _syncRouteContextPayload();
 
     String frameData = widget.config.fixtureToken;
     if (widget.config.useLiveCamera && _isCameraReady && _controller != null) {
@@ -211,14 +282,34 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
 
   void _tickNavigationProgress() {
     if (!widget.config.hasNavigation || _remainingDistanceM <= 0) return;
+    if (_speed < 8) return;
 
-    final metersPerPulse = _speed * 1000 / 3600 * 1.5;
+    final seconds = _pulseInterval.inMilliseconds / 1000;
+    final metersPerPulse = _speed * 1000 / 3600 * seconds;
     _remainingDistanceM =
         (_remainingDistanceM - metersPerPulse).round().clamp(0, 999999);
 
-    if (_remainingDistanceM < 30 && !_advancingStep) {
+    final sinceAdvance = _lastStepAdvanceAt == null
+        ? const Duration(days: 1)
+        : DateTime.now().difference(_lastStepAdvanceAt!);
+    final canAdvance = sinceAdvance > const Duration(seconds: 45) &&
+        _movedSinceLastStepM > 30 &&
+        _remainingDistanceM < 20;
+
+    if (canAdvance && !_advancingStep) {
       _advanceRouteStep();
     }
+  }
+
+  Map<String, dynamic> _fixedRouteOrigin() {
+    if (_routeOrigin.isNotEmpty) {
+      return Map<String, dynamic>.from(_routeOrigin);
+    }
+    return {
+      'lat': _lat,
+      'lng': _lng,
+      'label': 'Route origin',
+    };
   }
 
   Future<void> _advanceRouteStep() async {
@@ -230,9 +321,9 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     _advancingStep = true;
     try {
       final result = await _navService.resolveRoute(
-        origin: {'lat': _lat, 'lng': _lng, 'label': 'Current position'},
-        destination:
-            widget.config.destination ?? {'label': widget.config.destinationLabel},
+        origin: _fixedRouteOrigin(),
+        destination: widget.config.destination ??
+            {'label': _destinationLabel},
         stepIndex: _routeStepIndex + 1,
       );
       if (!mounted) return;
@@ -244,8 +335,13 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
           result['route_visualization'] as Map? ?? _routeVisualization,
         );
         _remainingDistanceM = (_routeContext['distance_m'] as int?) ?? 0;
+        final dest = result['destination'] as Map<String, dynamic>?;
+        if (dest?['label'] != null) {
+          _destinationLabel = dest!['label'] as String;
+        }
       });
-      _navVoice.resetRoute();
+      _movedSinceLastStepM = 0;
+      _lastStepAdvanceAt = DateTime.now();
     } catch (_) {
       // Keep current step if resolve fails.
     } finally {
@@ -283,6 +379,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
   @override
   void dispose() {
     _frameTimer?.cancel();
+    _positionSub?.cancel();
     _wsSub?.cancel();
     _ws.dispose();
     _navVoice.dispose();
@@ -429,7 +526,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
 
               // ── Overlay toggles ───
               Positioned(
-                bottom: 80.0,
+                bottom: 150.0,
                 left: 24.0,
                 child: Container(
                   padding: const EdgeInsets.all(12.0),
@@ -563,61 +660,83 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                 ),
               ),
 
-              // Bottom-left REC indicator
+              // Bottom-left: GPS + destination (above overlay toggles)
               Positioned(
                 bottom: 24.0,
                 left: 24.0,
-                child: FadeTransition(
-                  opacity: _blinkAnimation,
-                  child: Row(
-                    children: [
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.config.showGpsOnHud) ...[
                       Container(
-                        width: 10.0,
-                        height: 10.0,
-                        // Square marker per design.md §Data Visualization
-                        color: dangerColor,
-                      ),
-                      const SizedBox(width: 8.0),
-                      Text(
-                        'REC // CH-1',
-                        style: GoogleFonts.spaceGrotesk(
-                          color: dangerColor,
-                          fontSize: 14.0,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2.0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8.0,
+                          vertical: 6.0,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.85),
+                          border: Border.all(
+                            color: activeColor.withValues(alpha: 0.5),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'DEST: $_destinationLabel',
+                              style: GoogleFonts.spaceMono(
+                                color: activeColor,
+                                fontSize: 9.0,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'GPS: ${_lat.toStringAsFixed(5)}, ${_lng.toStringAsFixed(5)}',
+                              style: GoogleFonts.spaceMono(
+                                color: activeColor,
+                                fontSize: 9.0,
+                              ),
+                            ),
+                            if (_speed > 0)
+                              Text(
+                                'SPD: ${_speed.toInt()} km/h',
+                                style: GoogleFonts.spaceMono(
+                                  color: activeColor,
+                                  fontSize: 9.0,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
+                      const SizedBox(height: 8.0),
                     ],
-                  ),
+                    FadeTransition(
+                      opacity: _blinkAnimation,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 10.0,
+                            height: 10.0,
+                            color: dangerColor,
+                          ),
+                          const SizedBox(width: 8.0),
+                          Text(
+                            'REC // CH-1',
+                            style: GoogleFonts.spaceGrotesk(
+                              color: dangerColor,
+                              fontSize: 14.0,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 2.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-
-              if (widget.config.showGpsOnHud)
-                Positioned(
-                  bottom: 24.0,
-                  left: 24.0,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'DEST: ${widget.config.destinationLabel}',
-                        style: GoogleFonts.spaceMono(
-                          color: activeColor,
-                          fontSize: 9.0,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'LAT: ${_lat.toStringAsFixed(5)}',
-                        style: GoogleFonts.spaceMono(color: activeColor, fontSize: 9.0),
-                      ),
-                      Text(
-                        'LNG: ${_lng.toStringAsFixed(5)}',
-                        style: GoogleFonts.spaceMono(color: activeColor, fontSize: 9.0),
-                      ),
-                    ],
-                  ),
-                ),
 
               // Corner brackets (design.md §Cards & Modules)
               Positioned.fill(

@@ -9,6 +9,8 @@ class NavigationVoiceService {
   String? _lastHazardKey;
   int _activeStepIndex = -1;
   final Set<int> _spokenMilestones = {};
+  DateTime? _lastSpeakAt;
+  static const _minSpeakGap = Duration(seconds: 12);
 
   Future<void> initialize() async {
     await _tts.setLanguage('en-US');
@@ -29,7 +31,7 @@ class NavigationVoiceService {
 
   Future<void> announceRideStart(String destination) async {
     if (!enabled) return;
-    await _speak('Navigation active. Heading to $destination.');
+    await _speak('Navigation active. Heading to $destination.', force: true);
   }
 
   /// Call on each WebSocket pulse with routing agent navigation payload.
@@ -47,16 +49,23 @@ class NavigationVoiceService {
       _lastNavKey = null;
     }
 
-    final isHazard = threatLevel == 'WARNING' || threatLevel == 'CRITICAL';
+    final isCritical = threatLevel == 'CRITICAL';
+    final isHazard = threatLevel == 'WARNING' || isCritical;
     if (isHazard) {
-      await _maybeSpeakHazard(navigation);
+      final advisory = navigation['hazard_advisory'] as String?;
+      final hazardNav = advisory != null && advisory.trim().isNotEmpty
+          ? {'voice_prompt': advisory}
+          : navigation;
+      await _maybeSpeakHazard(hazardNav, force: isCritical);
     }
 
     final voice = navigation['voice_prompt'] as String?;
     if (voice == null || voice.trim().isEmpty) return;
 
     final arrow = (navigation['arrow'] as String? ?? 'STRAIGHT').toUpperCase();
-    final instruction = navigation['instruction'] as String? ?? '';
+    final instruction = _stripDistancePrefix(
+      navigation['instruction'] as String? ?? '',
+    );
     final navKey = '$stepIndex|$arrow|$instruction';
 
     if (navKey != _lastNavKey) {
@@ -73,30 +82,46 @@ class NavigationVoiceService {
           !_spokenMilestones.contains(threshold)) {
         _spokenMilestones.add(threshold);
         final short = _shortInstruction(instruction);
-        await _speak('In $threshold meters, $short');
+        if (short.isNotEmpty) {
+          await _speak('In $threshold meters, $short');
+        }
         break;
       }
     }
   }
 
-  Future<void> _maybeSpeakHazard(Map<String, dynamic> navigation) async {
+  Future<void> _maybeSpeakHazard(
+    Map<String, dynamic> navigation, {
+    bool force = false,
+  }) async {
     final voice = navigation['voice_prompt'] as String?;
     if (voice == null || voice.trim().isEmpty) return;
 
     final hazardKey = voice.trim();
-    if (hazardKey == _lastHazardKey) return;
+    if (!force && hazardKey == _lastHazardKey) return;
     _lastHazardKey = hazardKey;
-    await _speak(voice);
+    await _speak(voice, force: force);
   }
 
-  String _shortInstruction(String instruction) {
+  String _stripDistancePrefix(String instruction) {
     return instruction
         .replaceFirst(RegExp(r'^In \d+ m - '), '')
         .replaceFirst(RegExp(r'^In \d+ meters, '), '')
         .trim();
   }
 
-  Future<void> _speak(String text) async {
+  String _shortInstruction(String instruction) {
+    return _stripDistancePrefix(instruction);
+  }
+
+  Future<void> _speak(String text, {bool force = false}) async {
+    final now = DateTime.now();
+    if (!force &&
+        _lastSpeakAt != null &&
+        now.difference(_lastSpeakAt!) < _minSpeakGap) {
+      return;
+    }
+    _lastSpeakAt = now;
     await _tts.stop();
     await _tts.speak(text);
   }

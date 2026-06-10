@@ -106,13 +106,24 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
     );
   }
 
-  void _launchSimulation() {
+  Future<void> _launchSimulation() async {
     final label = _destinationController.text.trim();
     if (label.isEmpty) {
       setState(() => _status = 'Enter or speak a destination first.');
       return;
     }
 
+    if (_routeContext == null) {
+      await _resolveNavigation(label);
+      if (_routeContext == null) {
+        if (mounted) {
+          setState(() => _status = 'Could not resolve route. Check API and try again.');
+        }
+        return;
+      }
+    }
+
+    if (!mounted) return;
     final config = SimLaunchConfig(
       destinationLabel: label,
       destination: _destination ?? {'label': label},

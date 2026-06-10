@@ -130,12 +130,7 @@ class ArgusXRoutingEngineNode(ArgusXBaseNode):
         if route_context:
             map_nav = self._map_navigation(route_context, destination)
             if hazard_nav and threat_level == "WARNING":
-                map_nav["instruction"] = (
-                    f"{map_nav['instruction']} - {hazard_nav['instruction']}"
-                )
-                map_nav["voice_prompt"] = (
-                    f"{map_nav['voice_prompt']} Caution: {hazard_nav['voice_prompt']}"
-                )
+                map_nav["hazard_advisory"] = hazard_nav.get("voice_prompt", "")
                 map_nav["override_reason"] = "Map route with hazard advisory"
             return map_nav
 
@@ -157,12 +152,12 @@ class ArgusXRoutingEngineNode(ArgusXBaseNode):
         base_instruction = str(route_context.get("instruction", "Continue on route"))
         dest_label = (destination or {}).get("label", "destination")
 
+        # Keep instruction stable per step — client handles distance milestones for TTS.
+        instruction = base_instruction
         if distance_m > 0:
             distance_voice = _format_distance_voice(distance_m)
-            instruction = f"In {distance_m} m - {base_instruction}"
             voice = f"{distance_voice}, {base_instruction}. Heading to {dest_label}."
         else:
-            instruction = base_instruction
             voice = f"{base_instruction}. Heading to {dest_label}."
 
         source = str(route_context.get("source", "google_directions"))
