@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/sim_launch_config.dart';
+import '../services/argus_wake_word_service.dart';
 import '../services/navigation_service.dart';
 import '../services/voice_destination_service.dart';
 import '../widgets/tech_panel.dart';
@@ -113,9 +116,15 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
       return;
     }
 
+    // Prime mic within this click gesture (Chrome requirement), but NEVER block
+    // the ride launch on it — voice has a tap-to-enable fallback on the HUD.
+    final rideWakeWord = ArgusWakeWordService();
+    unawaited(_primeMicSafely(rideWakeWord));
+
     if (_routeContext == null) {
       await _resolveNavigation(label);
       if (_routeContext == null) {
+        rideWakeWord.dispose();
         if (mounted) {
           setState(() => _status = 'Could not resolve route. Check API and try again.');
         }
@@ -123,7 +132,11 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
       }
     }
 
-    if (!mounted) return;
+    if (!mounted) {
+      rideWakeWord.dispose();
+      return;
+    }
+
     final config = SimLaunchConfig(
       destinationLabel: label,
       destination: _destination ?? {'label': label},
@@ -136,11 +149,15 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
       sessionId: 'flutter-${DateTime.now().millisecondsSinceEpoch}',
     );
 
+    if (!mounted) return;
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         opaque: true,
         fullscreenDialog: true,
-        pageBuilder: (_, __, ___) => CameraSimulationScreen(config: config),
+        pageBuilder: (_, __, ___) => CameraSimulationScreen(
+          config: config,
+          wakeWord: rideWakeWord,
+        ),
         transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
             position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
@@ -151,6 +168,14 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
         transitionDuration: const Duration(milliseconds: 500),
       ),
     );
+  }
+
+  Future<void> _primeMicSafely(ArgusWakeWordService service) async {
+    try {
+      await service.primeFromUserGesture().timeout(const Duration(seconds: 4));
+    } catch (_) {
+      // Non-fatal: the ride HUD offers a tap-to-enable voice fallback.
+    }
   }
 
   @override
@@ -176,7 +201,8 @@ class _CameraHudViewState extends State<CameraHudView> with AutomaticKeepAliveCl
           ),
           const SizedBox(height: 8),
           Text(
-            'Set your destination, confirm the route, then start the live safety ride.',
+            'Set your destination, confirm the route, then start the ride. '
+            'While riding, say "Argus navigate to …" anytime to change destination.',
             style: GoogleFonts.inter(color: const Color(0xFF998CA0), fontSize: 11),
           ),
           const SizedBox(height: 20),

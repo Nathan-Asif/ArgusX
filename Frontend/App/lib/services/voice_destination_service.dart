@@ -1,6 +1,8 @@
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
+import '../utils/argus_voice_commands.dart';
+
 enum VoiceDestinationPhase {
   idle,
   listening,
@@ -112,28 +114,8 @@ class VoiceDestinationService {
     }
   }
 
-  String? _extractPlace(String text) {
-    final patterns = [
-      RegExp(r'argus[, ]+set (?:the )?location (?:for|to) (.+)$'),
-      RegExp(r'argus[, ]+navigate (?:to|towards) (.+)$'),
-      RegExp(r'set destination (?:to|for) (.+)$'),
-      RegExp(r'go to (.+)$'),
-    ];
-    for (final pattern in patterns) {
-      final match = pattern.firstMatch(text);
-      if (match != null) {
-        return _cleanPlace(match.group(1)!);
-      }
-    }
-    return null;
-  }
-
-  String _cleanPlace(String raw) {
-    return raw
-        .replaceAll(RegExp(r'[?.!]+$'), '')
-        .split(RegExp(r'\bis that\b'))[0]
-        .trim();
-  }
+  String? _extractPlace(String text) =>
+      ArgusVoiceCommands.extractPlace(text, requireWakeWord: true);
 
   bool _isAffirmative(String text) =>
       text.contains('yes') ||

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
 /// Speaks turn-by-turn navigation from backend `navigation.voice_prompt`.
@@ -12,10 +13,20 @@ class NavigationVoiceService {
   DateTime? _lastSpeakAt;
   static const _minSpeakGap = Duration(seconds: 12);
 
+  Future<void> Function()? onSpeakStart;
+  Future<void> Function()? onSpeakEnd;
+
   Future<void> initialize() async {
     await _tts.setLanguage('en-US');
     await _tts.setSpeechRate(0.48);
     await _tts.setPitch(1.0);
+    if (kIsWeb) {
+      await _tts.setVolume(1.0);
+      await _tts.awaitSpeakCompletion(true);
+    }
+    _tts.setCompletionHandler(() async {
+      await onSpeakEnd?.call();
+    });
   }
 
   Future<void> dispose() async {
@@ -122,7 +133,15 @@ class NavigationVoiceService {
       return;
     }
     _lastSpeakAt = now;
+    await onSpeakStart?.call();
     await _tts.stop();
     await _tts.speak(text);
+
+    // Web TTS often never fires the completion handler — always resume listening.
+    final wordCount = text.split(RegExp(r'\s+')).length;
+    final estMs = (wordCount * 450 + 800).clamp(1800, 9000);
+    Future.delayed(Duration(milliseconds: estMs), () async {
+      await onSpeakEnd?.call();
+    });
   }
 }

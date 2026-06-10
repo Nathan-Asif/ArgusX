@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
@@ -11,6 +12,7 @@ import '../utils/hazard_layout.dart';
 import '../widgets/hud/hud_map_panel.dart';
 import '../widgets/hud/hud_nav_banner.dart';
 import '../widgets/hud_bracket_painter.dart';
+import '../services/argus_wake_word_service.dart';
 import '../services/navigation_service.dart';
 import '../services/navigation_voice_service.dart';
 import '../services/websocket_service.dart';
@@ -18,10 +20,12 @@ import '../services/websocket_service.dart';
 /// Full-screen camera HUD connected to the ArgusX Safety Pulse backend.
 class CameraSimulationScreen extends StatefulWidget {
   final SimLaunchConfig config;
+  final ArgusWakeWordService? wakeWord;
 
   const CameraSimulationScreen({
     super.key,
     required this.config,
+    this.wakeWord,
   });
 
   @override
@@ -47,7 +51,11 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
   int _remainingDistanceM = 0;
   bool _advancingStep = false;
   String _destinationLabel = '';
+  Map<String, dynamic>? _destination;
   Map<String, dynamic> _routeOrigin = {};
+  bool _resolvingDestination = false;
+  ArgusWakeWordState _wakeWordState = ArgusWakeWordState.idle;
+  String _lastHeardVoice = '';
   double _movedSinceLastStepM = 0;
   DateTime? _lastStepAdvanceAt;
   static const _pulseInterval = Duration(seconds: 3);
@@ -56,6 +64,8 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
   final ArgusXWebSocketService _ws = ArgusXWebSocketService();
   final ArgusXNavigationService _navService = ArgusXNavigationService();
   final NavigationVoiceService _navVoice = NavigationVoiceService();
+  late final ArgusWakeWordService _wakeWord;
+  late final bool _ownsWakeWord;
   StreamSubscription<ArgusXPulseResponse>? _wsSub;
   StreamSubscription<Position>? _positionSub;
   Timer? _frameTimer;
@@ -78,6 +88,8 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
   @override
   void initState() {
     super.initState();
+    _wakeWord = widget.wakeWord ?? ArgusWakeWordService();
+    _ownsWakeWord = widget.wakeWord == null;
 
     // Force fullscreen — hide status/nav bars
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -120,6 +132,9 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
       if (mounted) setState(() => _wsState = s);
     });
     _destinationLabel = widget.config.destinationLabel;
+    _destination = widget.config.destination != null
+        ? Map<String, dynamic>.from(widget.config.destination!)
+        : {'label': _destinationLabel};
     _routeOrigin = Map<String, dynamic>.from(
       widget.config.origin ??
           widget.config.routeVisualization?['origin'] as Map? ??
@@ -137,15 +152,43 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     _routeStepIndex = (_routeContext['step_index'] as int?) ?? 0;
     _remainingDistanceM = (_routeContext['distance_m'] as int?) ?? 0;
 
-    await _navVoice.initialize();
-    _navVoice.enabled = _voiceGuidance;
+    // Best-effort voice setup — never let it block the live backend link.
+    try {
+      await _navVoice.initialize().timeout(const Duration(seconds: 4));
+      _navVoice.enabled = _voiceGuidance;
+      _navVoice.onSpeakStart = () async => _wakeWord.pause();
+      _navVoice.onSpeakEnd = () async => _wakeWord.resume();
+    } catch (_) {
+      // Continue without nav TTS.
+    }
+
     await _startGpsTracking();
 
-    await _ws.connect(ArgusXConfig.wsUrl);
-    _wsSub = _ws.responses.listen(_onBackendResponse);
-    if (widget.config.hasNavigation) {
-      await _navVoice.announceRideStart(_destinationLabel);
+    try {
+      await _startWakeWordListening().timeout(const Duration(seconds: 4));
+    } catch (_) {
+      // Voice commands unavailable; ride continues.
     }
+
+    // Connect the Safety Pulse backend and begin streaming frames.
+    try {
+      await _ws.connect(ArgusXConfig.wsUrl).timeout(const Duration(seconds: 8));
+      _wsSub = _ws.responses.listen(_onBackendResponse);
+    } catch (_) {
+      // Frame loop still runs and will retry sending on each pulse.
+    }
+
+    if (widget.config.hasNavigation) {
+      try {
+        _wakeWord.pause();
+        await _navVoice.announceRideStart(_destinationLabel);
+        await Future.delayed(const Duration(milliseconds: 2500));
+        await _wakeWord.resume();
+      } catch (_) {
+        // Ignore announcement failures.
+      }
+    }
+
     _startFrameLoop();
     _sendFrame();
   }
@@ -161,7 +204,8 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
         return;
       }
 
-      final current = await Geolocator.getCurrentPosition();
+      final current = await Geolocator.getCurrentPosition()
+          .timeout(const Duration(seconds: 6));
       _applyGpsPosition(current);
 
       _positionSub = Geolocator.getPositionStream(
@@ -169,9 +213,89 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
           accuracy: LocationAccuracy.high,
           distanceFilter: 8,
         ),
-      ).listen(_applyGpsPosition);
+      ).listen(_applyGpsPosition, onError: (_) {});
     } catch (_) {
-      // Keep ride-setup origin when GPS is unavailable.
+      // Keep ride-setup origin when GPS is unavailable or slow.
+    }
+  }
+
+  Future<void> _startWakeWordListening() async {
+    await _wakeWord.start(
+      onDestination: _onVoiceDestinationChange,
+      onStatus: (_) {
+        if (!mounted) return;
+        setState(() {
+          _wakeWordState = _wakeWord.state;
+          _lastHeardVoice = _wakeWord.lastHeard;
+        });
+      },
+    );
+    if (mounted) {
+      setState(() {
+        _wakeWordState = _wakeWord.state;
+        _lastHeardVoice = _wakeWord.lastHeard;
+      });
+    }
+  }
+
+  Future<void> _onHudTapActivateVoice() async {
+    await _wakeWord.activateFromUserGesture();
+    if (!mounted) return;
+    setState(() {
+      _wakeWordState = _wakeWord.state;
+      _lastHeardVoice = _wakeWord.lastHeard;
+    });
+  }
+
+  Future<void> _onVoiceDestinationChange(String place) async {
+    if (_resolvingDestination) return;
+    _resolvingDestination = true;
+    try {
+      final origin = {
+        'lat': _lat,
+        'lng': _lng,
+        'label': 'Current location',
+      };
+      final result = await _navService.resolveRoute(
+        origin: origin,
+        destination: {'label': place},
+      );
+      if (!mounted) return;
+
+      final resolvedDest =
+          result['destination'] as Map<String, dynamic>? ?? {'label': place};
+      final resolvedOrigin =
+          result['origin'] as Map<String, dynamic>? ?? origin;
+
+      setState(() {
+        _destinationLabel = resolvedDest['label'] as String? ?? place;
+        _destination = Map<String, dynamic>.from(resolvedDest);
+        _routeOrigin = Map<String, dynamic>.from(resolvedOrigin);
+        _routeContext =
+            Map<String, dynamic>.from(result['route_context'] as Map? ?? {});
+        _routeVisualization = Map<String, dynamic>.from(
+          result['route_visualization'] as Map? ?? _routeVisualization,
+        );
+        _routeStepIndex = 0;
+        _remainingDistanceM = (_routeContext['distance_m'] as int?) ?? 0;
+        _movedSinceLastStepM = 0;
+        _lastStepAdvanceAt = null;
+        _navigation = Map<String, dynamic>.from(_routeContext);
+      });
+
+      _navVoice.resetRoute();
+      if (_voiceGuidance) {
+        await _wakeWord.speak('Routing to $_destinationLabel.');
+        await _navVoice.announceRideStart(_destinationLabel);
+      }
+    } catch (_) {
+      await _wakeWord.speak('Could not find a route to $place.');
+    } finally {
+      _resolvingDestination = false;
+      if (mounted) {
+        setState(() => _wakeWordState = _wakeWord.state);
+      }
+      await _wakeWord.resume();
     }
   }
 
@@ -269,7 +393,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
       frameData: frameData,
       sessionId: widget.config.sessionId,
       riderId: widget.config.riderId,
-      destination: widget.config.destination,
+      destination: _destination,
       routeContext: _routeContext.isNotEmpty
           ? _routeContext
           : widget.config.routeContext,
@@ -322,8 +446,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     try {
       final result = await _navService.resolveRoute(
         origin: _fixedRouteOrigin(),
-        destination: widget.config.destination ??
-            {'label': _destinationLabel},
+        destination: _destination ?? {'label': _destinationLabel},
         stepIndex: _routeStepIndex + 1,
       );
       if (!mounted) return;
@@ -382,6 +505,9 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
     _positionSub?.cancel();
     _wsSub?.cancel();
     _ws.dispose();
+    if (_ownsWakeWord) {
+      _wakeWord.dispose();
+    }
     _navVoice.dispose();
     _blinkController.dispose();
     _glitchController.dispose();
@@ -410,7 +536,10 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: Stack(
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: kIsWeb ? _onHudTapActivateVoice : null,
+          child: Stack(
           fit: StackFit.expand,
           children: [
             // ── 1. Camera feed / states ─────────────────────────────
@@ -575,6 +704,11 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                             _voiceGuidance = val;
                             _navVoice.enabled = val;
                           });
+                          if (val) {
+                            _wakeWord.resume();
+                          } else {
+                            _wakeWord.pause();
+                          }
                         },
                       ),
                     ],
@@ -594,6 +728,77 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
                   threat: _threatLevel,
                 ),
               ),
+
+              // Wake-word voice status — below WS badge
+              if (_wakeWordState != ArgusWakeWordState.idle)
+                Positioned(
+                  top: 52.0,
+                  right: 16.0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8.0,
+                          vertical: 4.0,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.75),
+                          border: Border.all(
+                            color: _wakeWordState == ArgusWakeWordState.micError
+                                ? const Color(0xFFFF5252)
+                                : _wakeWordState == ArgusWakeWordState.awaitingGesture
+                                    ? const Color(0xFFFFB74D)
+                                    : _wakeWordState == ArgusWakeWordState.awaitingCommand
+                                    ? const Color(0xFFDDB7FF)
+                                    : _wakeWordState == ArgusWakeWordState.paused
+                                        ? const Color(0xFFFFB74D)
+                                        : const Color(0xFF00E676),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Text(
+                          _wakeWordState == ArgusWakeWordState.micError
+                              ? 'ARGUS // MIC ERROR'
+                              : _wakeWordState == ArgusWakeWordState.awaitingGesture
+                                  ? 'ARGUS // TAP TO ENABLE'
+                                  : _wakeWordState == ArgusWakeWordState.awaitingCommand
+                                  ? 'ARGUS // AWAITING CMD'
+                                  : _wakeWordState == ArgusWakeWordState.processing
+                                      ? 'ARGUS // ROUTING'
+                                      : _wakeWordState == ArgusWakeWordState.paused
+                                          ? 'ARGUS // PAUSED'
+                                          : 'ARGUS // LISTENING',
+                          style: GoogleFonts.spaceMono(
+                            color: _wakeWordState == ArgusWakeWordState.micError
+                                ? const Color(0xFFFF5252)
+                                : _wakeWordState == ArgusWakeWordState.awaitingGesture
+                                    ? const Color(0xFFFFB74D)
+                                    : _wakeWordState == ArgusWakeWordState.awaitingCommand
+                                    ? const Color(0xFFDDB7FF)
+                                    : _wakeWordState == ArgusWakeWordState.paused
+                                        ? const Color(0xFFFFB74D)
+                                        : const Color(0xFF00E676),
+                            fontSize: 8.0,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ),
+                      if (_lastHeardVoice.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Text(
+                            'HEARD: ${_lastHeardVoice.length > 42 ? '${_lastHeardVoice.substring(0, 42)}…' : _lastHeardVoice}',
+                            style: GoogleFonts.spaceMono(
+                              color: const Color(0xFF998CA0),
+                              fontSize: 7.0,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
 
               // WS live / sim status badge — top-right corner
               Positioned(
@@ -780,6 +985,7 @@ class _CameraSimulationScreenState extends State<CameraSimulationScreen>
               ),
             ],
           ],
+        ),
         ),
       ),
     );
