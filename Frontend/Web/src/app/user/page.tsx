@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import { useAuth } from "@/lib/AuthContext";
+import { motion, type Variants } from "framer-motion";
+import { gsap } from "gsap";
 import {
   Award,
   Activity,
@@ -10,21 +13,85 @@ import {
   ShieldCheck,
   ArrowRight,
   Zap,
-  Settings,
   User,
 } from "lucide-react";
+
+/* ── Reusable GSAP Count-up component ── */
+function Counter({ value, suffix = "" }: { value: number | string; suffix?: string }) {
+  const elRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el) return;
+
+    // Clean commas for parsing
+    const rawValStr = typeof value === "string" ? value.replace(/,/g, "") : value.toString();
+    const rawNum = parseFloat(rawValStr);
+    const hasDecimal = rawValStr.includes(".") || (typeof value === "number" && value % 1 !== 0);
+    const obj = { val: 0 };
+
+    const tween = gsap.to(obj, {
+      val: rawNum,
+      duration: 1.5,
+      ease: "power2.out",
+      onUpdate: () => {
+        if (el) {
+          let formatted = hasDecimal ? obj.val.toFixed(1) : Math.floor(obj.val).toString();
+          if (typeof value === "string" && value.includes(",")) {
+            formatted = Math.floor(obj.val).toLocaleString("en-US");
+          } else if (rawNum >= 1000) {
+            formatted = Math.floor(obj.val).toLocaleString("en-US");
+          }
+          el.innerText = formatted + suffix;
+        }
+      }
+    });
+
+    return () => { tween.kill(); };
+  }, [value, suffix]);
+
+  return <span ref={elRef}>0{suffix}</span>;
+}
 
 export default function UserDashboard() {
   const { user } = useAuth();
   const displayName = user?.name ?? "Rider";
 
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.1,
+      }
+    }
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { type: "spring" as const, stiffness: 100, damping: 15 }
+    }
+  };
+
   return (
     <div className="flex flex-row min-h-screen">
       <Sidebar />
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto p-8 relative z-10">
+      <motion.main
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="flex-1 flex flex-col min-w-0 overflow-y-auto p-8 relative z-10"
+      >
         {/* Hero Welcome */}
-        <header className="pb-8 border-b border-white/5 mb-8 relative overflow-hidden rounded-none glass-panel tech-panel-purple p-8">
+        <motion.header
+          variants={itemVariants}
+          className="pb-8 border-b border-white/5 mb-8 relative overflow-hidden rounded-none glass-panel tech-panel-purple p-8"
+        >
           <div className="absolute top-0 right-0 w-64 h-64 bg-accent-purple/10 rounded-none blur-[80px] pointer-events-none" />
           <div className="relative z-10">
             <div className="flex items-center gap-4 mb-4">
@@ -37,8 +104,8 @@ export default function UserDashboard() {
                 <h1 className="font-title text-2xl sm:text-3xl font-black tracking-wide text-white">
                   Welcome back, {displayName}
                 </h1>
-                <p className="text-xs text-slate-400 mt-1 font-mono">
-                  SESSION: ACTIVE — TIER 1 MASTER OPERATOR
+                <p className="text-xs text-slate-400 mt-1 font-mono uppercase tracking-wider">
+                  SESSION: ACTIVE — TIER 1 RIDER INTEGRATION
                 </p>
               </div>
             </div>
@@ -50,7 +117,7 @@ export default function UserDashboard() {
                   Safety Score
                 </div>
                 <div className="text-2xl font-black text-accent-green mt-1 font-title">
-                  96
+                  <Counter value={96} />
                 </div>
               </div>
               <div className="bg-white/[0.03] border border-white/5 rounded-none p-4">
@@ -58,7 +125,7 @@ export default function UserDashboard() {
                   Total Rides
                 </div>
                 <div className="text-2xl font-black text-white mt-1 font-title">
-                  142
+                  <Counter value={142} />
                 </div>
               </div>
               <div className="bg-white/[0.03] border border-white/5 rounded-none p-4">
@@ -66,7 +133,7 @@ export default function UserDashboard() {
                   Miles Logged
                 </div>
                 <div className="text-2xl font-black text-white mt-1 font-title">
-                  1,248
+                  <Counter value="1,248" />
                 </div>
               </div>
               <div className="bg-white/[0.03] border border-white/5 rounded-none p-4">
@@ -74,71 +141,94 @@ export default function UserDashboard() {
                   Interventions
                 </div>
                 <div className="text-2xl font-black text-accent-purple mt-1 font-title">
-                  18
+                  <Counter value={18} />
                 </div>
               </div>
             </div>
           </div>
-        </header>
+        </motion.header>
 
         {/* Navigation Cards */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Link
-            href="/user/analytics"
-            className="glass-panel tech-panel p-6 rounded-none border border-white/5 hover:border-accent-cyan/30 transition-all duration-300 group flex flex-col gap-4"
+        <motion.section
+          variants={containerVariants}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
+        >
+          {/* Card 1 */}
+          <motion.div
+            variants={itemVariants}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-none bg-accent-cyan/10 flex items-center justify-center group-hover:bg-accent-cyan/20 transition-colors">
-                <Activity className="w-5 h-5 text-accent-cyan" />
+            <Link
+              href="/user/analytics"
+              className="w-full glass-panel tech-panel p-6 rounded-none border border-white/5 hover:border-accent-cyan/30 transition-all duration-300 group flex flex-col justify-between gap-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-none bg-accent-cyan/10 flex items-center justify-center group-hover:bg-accent-cyan/20 transition-colors">
+                  <Activity className="w-5 h-5 text-accent-cyan" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-sm group-hover:text-accent-cyan transition-colors font-title tracking-wide">
+                    Ride Analytics
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5 font-sans">
+                    HUD settings &amp; performance metrics
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-white text-sm group-hover:text-accent-cyan transition-colors">
-                  Ride Analytics
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  HUD settings &amp; performance metrics
-                </p>
+              <div className="flex items-center gap-1 text-[11px] text-accent-cyan font-bold font-mono">
+                <span>View Dashboard</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </div>
-            </div>
-            <div className="flex items-center gap-1 text-[11px] text-accent-cyan font-bold">
-              <span>View Dashboard</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
+            </Link>
+          </motion.div>
 
-          <Link
-            href="/user/profile"
-            className="glass-panel tech-panel p-6 rounded-none border border-white/5 hover:border-accent-cyan/30 transition-all duration-300 group flex flex-col gap-4"
+          {/* Card 2 */}
+          <motion.div
+            variants={itemVariants}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-none bg-accent-cyan/10 flex items-center justify-center group-hover:bg-accent-cyan/20 transition-colors">
-                <User className="w-5 h-5 text-accent-cyan" />
+            <Link
+              href="/user/profile"
+              className="w-full glass-panel tech-panel p-6 rounded-none border border-white/5 hover:border-accent-cyan/30 transition-all duration-300 group flex flex-col justify-between gap-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-none bg-accent-cyan/10 flex items-center justify-center group-hover:bg-accent-cyan/20 transition-colors">
+                  <User className="w-5 h-5 text-accent-cyan" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-sm group-hover:text-accent-cyan transition-colors font-title tracking-wide">
+                    Profile &amp; Account
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5 font-sans">
+                    Personal info, email &amp; preferences
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-white text-sm group-hover:text-accent-cyan transition-colors">
-                  Profile &amp; Account
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Personal info, email &amp; preferences
-                </p>
+              <div className="flex items-center gap-1 text-[11px] text-accent-cyan font-bold font-mono">
+                <span>Edit Profile</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </div>
-            </div>
-            <div className="flex items-center gap-1 text-[11px] text-accent-cyan font-bold">
-              <span>Edit Profile</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
+            </Link>
+          </motion.div>
 
-          <div className="glass-panel tech-panel p-6 rounded-none border border-white/5 flex flex-col gap-4 opacity-50">
+          {/* Card 3 (disabled/coming soon) */}
+          <motion.div
+            variants={itemVariants}
+            className="glass-panel tech-panel p-6 rounded-none border border-white/5 flex flex-col justify-between gap-4 opacity-50 select-none"
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-none bg-accent-pink/10 flex items-center justify-center">
                 <Navigation className="w-5 h-5 text-accent-pink" />
               </div>
               <div>
-                <h3 className="font-bold text-white text-sm">
+                <h3 className="font-bold text-white text-sm font-title tracking-wide">
                   Ride History Map
                 </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-[11px] text-slate-500 mt-0.5 font-sans">
                   Spatial routes &amp; safety heatmaps
                 </p>
               </div>
@@ -146,11 +236,14 @@ export default function UserDashboard() {
             <div className="flex items-center gap-1 text-[11px] text-slate-500 font-bold font-mono">
               COMING SOON
             </div>
-          </div>
-        </section>
+          </motion.div>
+        </motion.section>
 
         {/* Recent Activity */}
-        <section className="glass-panel tech-panel p-6 rounded-none border border-white/5">
+        <motion.section
+          variants={itemVariants}
+          className="glass-panel tech-panel p-6 rounded-none border border-white/5"
+        >
           <h3 className="font-title font-bold text-slate-200 mb-4 flex items-center gap-2">
             <Zap className="w-4 h-4 text-accent-purple" />
             Recent Ride Sessions
@@ -185,7 +278,7 @@ export default function UserDashboard() {
                     <ShieldCheck className="w-4 h-4 text-accent-purple" />
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-slate-200">
+                    <div className="text-sm font-bold text-slate-200 font-sans">
                       {ride.date}
                     </div>
                     <div className="text-[10px] text-slate-500 font-mono">
@@ -194,7 +287,7 @@ export default function UserDashboard() {
                   </div>
                 </div>
                 <span
-                  className={`font-bold text-sm ${
+                  className={`font-bold text-sm font-mono ${
                     ride.score >= 95
                       ? "text-accent-green"
                       : ride.score >= 85
@@ -207,8 +300,8 @@ export default function UserDashboard() {
               </div>
             ))}
           </div>
-        </section>
-      </main>
+        </motion.section>
+      </motion.main>
     </div>
   );
 }

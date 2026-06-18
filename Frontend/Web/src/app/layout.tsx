@@ -1,10 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { AuthProvider } from "@/lib/AuthContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ArgusX Web Portal - Guardentic Ride Safety",
   description: "Tesla-style fleet dashboard, real-time rider tracking, and relational safety analytics for ArgusX.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -17,7 +22,7 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;700&family=Zen+Dots&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Zen+Dots&display=swap" rel="stylesheet" />
       </head>
       <body className="bg-[#131314] text-[#e5e2e3] min-h-screen relative flex flex-col antialiased">
         {/* Background Grid Pattern */}

@@ -3,6 +3,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import { motion, type Variants } from "framer-motion";
 import {
   Mail,
   Lock,
@@ -63,13 +64,47 @@ export default function LoginPage() {
     hour12: false,
   });
 
+  const leftContainerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.12,
+        delayChildren: 0.1,
+      }
+    }
+  };
+
+  const rightContainerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.2,
+      }
+    }
+  };
+
+  const fadeUpVariants: Variants = {
+    hidden: { opacity: 0, y: 15 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { type: "spring" as const, stiffness: 100, damping: 16 }
+    }
+  };
+
   return (
     <div
       className="flex min-h-[100dvh] w-full"
       style={{ fontFamily: "'Outfit', sans-serif" }}
     >
       {/* ── LEFT PANEL — Brand & HUD Decoration ─────────────── */}
-      <div
+      <motion.div
+        variants={leftContainerVariants}
+        initial="hidden"
+        animate="visible"
         className="hidden lg:flex flex-col justify-between w-[45%] shrink-0 relative overflow-hidden p-12"
         style={{ background: "linear-gradient(160deg, #0e0e0f 0%, #131314 40%, #1a0f28 100%)" }}
       >
@@ -87,7 +122,7 @@ export default function LoginPage() {
         />
 
         {/* Top: brand logo + wordmark */}
-        <div className="flex items-center gap-4 relative z-10 animate-fade-in-up">
+        <motion.div variants={fadeUpVariants} className="flex items-center gap-4 relative z-10">
           <div
             className="w-12 h-12 flex items-center justify-center relative overflow-hidden animate-iris-breathe"
             style={{ border: "1px solid rgba(221,183,255,0.25)", background: "rgba(142,45,226,0.1)" }}
@@ -106,10 +141,10 @@ export default function LoginPage() {
               Guardentic OS v1.0
             </p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Center: the big hero text */}
-        <div className="relative z-10 animate-fade-in-up-delay">
+        <motion.div variants={fadeUpVariants} className="relative z-10">
           <p className="text-[10px] tracking-[0.25em] uppercase mb-6" style={{ color: "#00e5ff", fontFamily: "'Zen Dots', sans-serif" }}>
             Tactical Safety Intelligence
           </p>
@@ -138,23 +173,27 @@ export default function LoginPage() {
               { icon: Shield, label: "Encryption", val: "AES-256" },
               { icon: Activity, label: "Status", val: "NOMINAL" },
             ].map(({ icon: Icon, label, val }) => (
-              <div key={label}>
+              <motion.div
+                key={label}
+                whileHover={{ y: -2 }}
+                transition={{ type: "spring", stiffness: 200, damping: 10 }}
+              >
                 <div className="flex items-center gap-1.5 mb-1">
                   <Icon className="w-3 h-3" style={{ color: "#8e2de2" }} />
                   <span className="text-[9px] uppercase tracking-[0.18em]" style={{ color: "#6d6478", fontFamily: "'Zen Dots', sans-serif" }}>{label}</span>
                 </div>
-                <p className="text-xs font-bold" style={{ color: "#ddb7ff", fontFamily: "'Cormorant Garamond', Georgia, serif", letterSpacing: "0.1em" }}>{val}</p>
-              </div>
+                <p className="text-xs font-bold" style={{ color: "#ddb7ff", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.05em" }}>{val}</p>
+              </motion.div>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* Bottom: live clock + protocol line */}
-        <div className="relative z-10 flex items-end justify-between animate-fade-in-up-delay-2">
+        <motion.div variants={fadeUpVariants} className="relative z-10 flex items-end justify-between">
           <div>
             <p
               className="text-2xl tabular-nums"
-              style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", color: "#998ca0", letterSpacing: "0.12em" }}
+              style={{ fontFamily: "'Share Tech Mono', monospace", color: "#998ca0", letterSpacing: "0.05em" }}
             >
               {timeStr}
             </p>
@@ -165,14 +204,14 @@ export default function LoginPage() {
           <p className="text-[9px] uppercase tracking-[0.18em]" style={{ color: "#6d6478", fontFamily: "'Zen Dots', sans-serif" }}>
             TLS 1.3 / JWT
           </p>
-        </div>
+        </motion.div>
 
         {/* Decorative vertical rule */}
         <div
           className="absolute top-0 right-0 w-px h-full"
           style={{ background: "linear-gradient(to bottom, transparent 0%, rgba(221,183,255,0.1) 30%, rgba(142,45,226,0.2) 60%, transparent 100%)" }}
         />
-      </div>
+      </motion.div>
 
       {/* ── RIGHT PANEL — Auth Form ──────────────────────────── */}
       <div
@@ -186,7 +225,7 @@ export default function LoginPage() {
         />
 
         {/* Mobile-only logo */}
-        <div className="lg:hidden flex items-center gap-3 mb-12 self-start animate-fade-in-up">
+        <div className="lg:hidden flex items-center gap-3 mb-12 self-start">
           <div
             className="w-9 h-9 flex items-center justify-center overflow-hidden"
             style={{ border: "1px solid rgba(221,183,255,0.2)", background: "rgba(142,45,226,0.08)" }}
@@ -201,9 +240,14 @@ export default function LoginPage() {
           </span>
         </div>
 
-        <div className="w-full max-w-[400px] relative z-10">
+        <motion.div
+          variants={rightContainerVariants}
+          initial="hidden"
+          animate="visible"
+          className="w-full max-w-[400px] relative z-10"
+        >
           {/* Heading */}
-          <div className="mb-10 animate-fade-in-up">
+          <motion.div variants={fadeUpVariants} className="mb-10">
             <h2
               className="text-2xl mb-2"
               style={{
@@ -216,14 +260,14 @@ export default function LoginPage() {
               Authenticate
             </h2>
             <p className="text-sm" style={{ color: "#998ca0", fontFamily: "'Outfit', sans-serif" }}>
-              Enter your operator credentials to access the portal.
+              Enter your credentials to access the operator grid.
             </p>
-          </div>
+          </motion.div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5 animate-fade-in-up-delay">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
-            <div className="space-y-2">
+            <motion.div variants={fadeUpVariants} className="space-y-2">
               <label
                 htmlFor="login-email"
                 className="block text-[11px] uppercase tracking-[0.15em] font-bold"
@@ -241,13 +285,13 @@ export default function LoginPage() {
                   placeholder="operator@argusx.io"
                   required
                   autoComplete="email"
-                  className="glass-input"
+                  className="glass-input text-white"
                 />
               </div>
-            </div>
+            </motion.div>
 
             {/* Password */}
-            <div className="space-y-2">
+            <motion.div variants={fadeUpVariants} className="space-y-2">
               <label
                 htmlFor="login-password"
                 className="block text-[11px] uppercase tracking-[0.15em] font-bold"
@@ -265,23 +309,25 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   required
                   autoComplete="current-password"
-                  className="glass-input"
+                  className="glass-input text-white"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors hover:text-white"
                   style={{ color: "#998ca0" }}
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-            </div>
+            </motion.div>
 
             {/* Error */}
             {error && (
-              <div
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
                 className="flex items-center gap-2.5 p-3 text-xs"
                 style={{
                   background: "rgba(255,82,82,0.08)",
@@ -292,15 +338,18 @@ export default function LoginPage() {
               >
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
-              </div>
+              </motion.div>
             )}
 
             {/* Submit */}
-            <button
+            <motion.button
+              variants={fadeUpVariants}
+              whileHover={{ scale: 1.01, boxShadow: "0 0 16px rgba(142, 45, 226, 0.3)" }}
+              whileTap={{ scale: 0.99 }}
               id="login-submit"
               type="submit"
               disabled={loading || !email || !password}
-              className="btn-primary w-full py-3.5"
+              className="btn-primary w-full py-3.5 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -313,12 +362,13 @@ export default function LoginPage() {
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
-            </button>
+            </motion.button>
           </form>
 
           {/* Demo hint */}
-          <div
-            className="mt-8 pt-6 animate-fade-in-up-delay-2"
+          <motion.div
+            variants={fadeUpVariants}
+            className="mt-8 pt-6"
             style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
           >
             <p
@@ -332,8 +382,10 @@ export default function LoginPage() {
                 { role: "Admin", email: "nathanasif@gmail.com", pass: "admin123" },
                 { role: "Rider", email: "rider@argusx.io", pass: "rider2026" },
               ].map((cred) => (
-                <button
+                <motion.button
                   key={cred.role}
+                  whileHover={{ scale: 1.02, backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(221,183,255,0.2)" }}
+                  whileTap={{ scale: 0.98 }}
                   type="button"
                   onClick={() => { setEmail(cred.email); setPassword(cred.pass); }}
                   className="w-full text-left px-3 py-2.5 transition-colors group"
@@ -352,22 +404,22 @@ export default function LoginPage() {
                     </span>
                     <span
                       className="text-[10px] font-bold uppercase tracking-[0.1em]"
-                      style={{ color: "#ddb7ff", fontFamily: "'Cormorant Garamond', serif" }}
+                      style={{ color: "#ddb7ff", fontFamily: "'Share Tech Mono', monospace" }}
                     >
                       Fill In
                     </span>
                   </div>
                   <p
                     className="text-[11px] mt-0.5"
-                    style={{ color: "#4d4354", fontFamily: "'Cormorant Garamond', serif", letterSpacing: "0.05em" }}
+                    style={{ color: "#4d4354", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.05em" }}
                   >
                     {cred.email}
                   </p>
-                </button>
+                </motion.button>
               ))}
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   );

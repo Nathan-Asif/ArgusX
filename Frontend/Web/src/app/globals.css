@@ -15,6 +15,14 @@
 }
 
 @font-face {
+  font-family: 'Nasalization';
+  src: url('/fonts/nasaliza.ttf') format('truetype');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Murosia';
   src: url('/fonts/Murosia.otf') format('opentype');
   font-weight: 700;
@@ -91,7 +99,9 @@
 
   /* Fonts */
   --font-sans:                'Outfit', system-ui, sans-serif;
-  --font-mono:                'Cormorant Garamond', monospace;
+  --font-mono:                'Share Tech Mono', monospace;
+  --font-display:             'Zen Dots', sans-serif;
+  --font-nasaliza:            'Nasalization', sans-serif;
 }
 
 /* ── Base Reset ───────────────────────────────────────────────── */
@@ -135,9 +145,13 @@ label, .label-caps {
 }
 
 .font-mono, .mono-data, code {
-  font-family: 'Cormorant Garamond', 'Georgia', serif;
-  letter-spacing: 0.02em;
+  font-family: 'Share Tech Mono', monospace;
+  letter-spacing: 0.06em;
   color: #cfc2d7;
+}
+
+.font-nasaliza {
+  font-family: 'Nasalization', sans-serif;
 }
 
 /* ── Background Grid (circuit-trace @ 5% per design.md) ─────── */

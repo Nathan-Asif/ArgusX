@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import { motion } from "framer-motion";
 import {
   Map,
   LineChart,
@@ -67,35 +68,50 @@ export default function Sidebar() {
           alignItems: "center",
           gap: "12px",
           padding: "10px 14px",
-          borderLeft: isActive ? `2px solid ${accent}` : "2px solid transparent",
-          background: isActive ? `linear-gradient(90deg, ${accent}18 0%, transparent 100%)` : "transparent",
           color: isActive ? C.text : C.muted,
           fontFamily: "'Zen Dots', sans-serif",
           fontSize: "11px",
           textTransform: "uppercase",
           letterSpacing: "0.1em",
-          fontWeight: isActive ? 400 : 400,
           textDecoration: "none",
-          transition: "all 0.2s",
+          transition: "color 0.2s",
           position: "relative",
         }}
         onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.color = C.textDim; }}
         onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.color = C.muted; }}
       >
-        <Icon size={15} style={{ color: isActive ? accent : C.subtle, flexShrink: 0 }} />
-        <span>{link.label}</span>
+        {/* Dynamic active state container driven by Framer Motion */}
         {isActive && (
-          <span
+          <motion.div
+            layoutId="activeNavIndicator"
             style={{
               position: "absolute",
-              right: "12px",
-              width: "4px",
-              height: "4px",
-              background: accent,
-              flexShrink: 0,
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: "100%",
+              background: `linear-gradient(90deg, ${accent}14 0%, transparent 100%)`,
+              borderLeft: `2px solid ${accent}`,
+              zIndex: 0,
             }}
+            transition={{ type: "spring", stiffness: 350, damping: 28 }}
           />
         )}
+
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", position: "relative", zIndex: 1, width: "100%" }}>
+          <Icon size={15} style={{ color: isActive ? accent : C.subtle, flexShrink: 0 }} />
+          <span style={{ flexGrow: 1 }}>{link.label}</span>
+          {isActive && (
+            <span
+              style={{
+                width: "4px",
+                height: "4px",
+                background: accent,
+                flexShrink: 0,
+              }}
+            />
+          )}
+        </div>
       </Link>
     );
   };
@@ -175,7 +191,12 @@ export default function Sidebar() {
       </div>
 
       {/* ── Nav ── */}
-      <nav style={{ flex: 1, padding: "20px 0", overflowY: "auto", display: "flex", flexDirection: "column", gap: "24px" }}>
+      <motion.nav
+        initial={{ opacity: 0, x: -6 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        style={{ flex: 1, padding: "20px 0", overflowY: "auto", display: "flex", flexDirection: "column", gap: "24px" }}
+      >
 
         {/* Admin section */}
         {isAdmin && (
@@ -302,7 +323,7 @@ export default function Sidebar() {
             </div>
           </div>
         </div>
-      </nav>
+      </motion.nav>
 
       {/* ── User Footer ── */}
       <div
@@ -346,7 +367,7 @@ export default function Sidebar() {
               <p style={{ fontFamily: "'Zen Dots', sans-serif", fontSize: "11px", fontWeight: 400, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {user.name}
               </p>
-              <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "10px", color: C.subtle, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: "0.04em" }}>
+              <p style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "10px", color: C.subtle, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: "0.04em" }}>
                 {user.email}
               </p>
             </div>
